@@ -66,7 +66,20 @@ class PgCommandTest {
             );
 
             assertThat(exitCode).isZero();
-            verify(readers.constructed().getFirst()).findSlowQueries();
+            verify(readers.constructed().getFirst()).findSlowQueries(20);
+        }
+    }
+
+    @Test
+    void passesLimitToSlowQueries() throws Exception {
+        try (var readers = mockConstruction(PostgresSchemaReader.class)) {
+            int exitCode = new CommandLine(new JvmMcp()).execute(
+                "pg", "--url", "jdbc:postgresql://localhost:5432/db",
+                "--action", "slow-queries", "--limit", "5"
+            );
+
+            assertThat(exitCode).isZero();
+            verify(readers.constructed().getFirst()).findSlowQueries(5);
         }
     }
 

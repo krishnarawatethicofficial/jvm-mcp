@@ -3,6 +3,7 @@ package dev.jvmmcp;
 import dev.jvmmcp.core.attach.JvmAttachService;
 import dev.jvmmcp.core.model.Framework;
 import dev.jvmmcp.core.model.JvmProcess;
+import dev.jvmmcp.core.util.SimpleJson;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -231,5 +232,45 @@ class ListCommandTest {
         ListCommand command = new ListCommand();
 
         assertThat(command).isNotNull();
+    }
+    @Test
+    @DisplayName("list command should output a JSON array with --json")
+    void shouldOutputJsonList() {
+        List<JvmProcess> jvms = List.of(
+            new JvmProcess(101L, "JsonApp", "com.example.Main", "21", Framework.PLAIN_JAVA, true)
+        );
+        when(mockAttachService.listJvms()).thenReturn(jvms);
+
+        ListCommand command = new ListCommand(mockAttachService);
+        command.json = true;
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        PrintStream originalOut = System.out;
+        try {
+            System.setOut(new PrintStream(out));
+            assertThat(command.call()).isZero();
+            String output = out.toString().trim();
+            assertThat(SimpleJson.parse(output)).isInstanceOf(List.class);
+            assertThat(output).contains("\"pid\":101").doesNotContain("FRAMEWORK", "MAIN CLASS", "----");
+        } finally {
+            System.setOut(originalOut);
+        }
+    }
+
+    @Test
+    @DisplayName("list command should output an empty JSON array when no JVMs are found")
+    void shouldOutputEmptyJsonList() {
+        when(mockAttachService.listJvms()).thenReturn(Collections.emptyList());
+
+        ListCommand command = new ListCommand(mockAttachService);
+        command.json = true;
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        PrintStream originalOut = System.out;
+        try {
+            System.setOut(new PrintStream(out));
+            assertThat(command.call()).isZero();
+            assertThat(out.toString().trim()).isEqualTo("[]");
+        } finally {
+            System.setOut(originalOut);
+        }
     }
 }

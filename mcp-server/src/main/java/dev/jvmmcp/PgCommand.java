@@ -62,6 +62,10 @@ public class PgCommand implements Callable<Integer> {
         description = "Minimum table size in MiB for missing-indexes (default: 1, 0 disables the size filter)")
     private long minTableSizeMb;
 
+    @Option(names = {"--limit"}, defaultValue = "20",
+        description = "Maximum number of slow queries to return for slow-queries (default: 20, max: 100)")
+    private int limit;
+
     @Override
     public Integer call() {
         String effectiveUser;
@@ -100,7 +104,7 @@ public class PgCommand implements Callable<Integer> {
                     System.out.println(SimpleJson.toJson(analysis));
                 }
                 case "slow-queries" -> {
-                    SlowQueryAnalysis analysis = reader.findSlowQueries();
+                    SlowQueryAnalysis analysis = reader.findSlowQueries(limit);
                     System.out.println(SimpleJson.toJson(analysis));
                 }
                 default -> {

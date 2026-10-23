@@ -10,6 +10,7 @@ import dev.jvmmcp.core.model.HeapHistogram;
 import dev.jvmmcp.core.model.HeapSummary;
 import dev.jvmmcp.core.model.MemoryPoolInfo;
 import dev.jvmmcp.core.model.MemoryUsageInfo;
+import dev.jvmmcp.core.util.SimpleJson;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
@@ -32,6 +33,9 @@ public class MemoryCommand implements Callable<Integer> {
 
     @Option(names = {"--histogram", "-H"}, description = "Include live heap class histogram")
     boolean histogram;
+
+    @Option(names = {"--json"}, description = "Output in JSON format")
+    boolean json;
 
     @Option(names = {"--top", "-n"}, defaultValue = "20", description = "Number of top classes in histogram (default: 20)")
     int topN;
@@ -71,6 +75,11 @@ public class MemoryCommand implements Callable<Integer> {
                     jmxManagerOwnsVm[0] = true;
 
                     HeapSummary summary = client.getHeapSummary(pid);
+
+                    if (json) {
+                        System.out.println(SimpleJson.toJson(summary));
+                        return 0;
+                    }
 
                 System.out.println("=".repeat(80));
                 System.out.printf(" JVM MEMORY DIAGNOSTICS FOR PID %d%n", pid);

@@ -11,6 +11,7 @@ import dev.jvmmcp.core.model.MemoryPoolInfo;
 import dev.jvmmcp.core.model.MemoryPressure;
 import dev.jvmmcp.core.model.MemoryPressureLevel;
 import dev.jvmmcp.core.model.MemoryUsageInfo;
+import dev.jvmmcp.core.util.SimpleJson;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -392,5 +393,32 @@ class MemoryCommandTest {
             .findFirst()
             .orElseThrow(() -> new AssertionError(
                 "No output line containing '" + needle + "' in:\n" + output));
+    }
+    @Test
+    @DisplayName("memory command should output pure JSON with --json")
+    void shouldOutputJsonSummary() throws Exception {
+        long targetPid = 100L;
+        when(mockAttachService.attach(String.valueOf(targetPid))).thenReturn(AttachResult.success(String.valueOf(targetPid), null));
+        long mb = 1024L * 1024L;
+        MemoryUsageInfo heap = MemoryUsageInfo.from(new MemoryUsage(0, 512 * mb, 1024 * mb, 2048 * mb));
+        MemoryUsageInfo nonHeap = MemoryUsageInfo.from(new MemoryUsage(0, 64 * mb, 128 * mb, 256 * mb));
+        HeapSummary summary = new HeapSummary(targetPid, heap, nonHeap, List.of(), List.of(),
+            new MemoryPressure(MemoryPressureLevel.NORMAL, 0.25, 0L, 0L, "Heap looks healthy"));
+        MemoryCommand command = new MemoryCommand(mockAttachService);
+        command.pid = targetPid;
+        command.json = true;
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        PrintStream originalOut = System.out;
+        try (var clients = mockConstruction(MemoryMXBeanClient.class,
+                (client, context) -> when(client.getHeapSummary(anyLong())).thenReturn(summary))) {
+            System.setOut(new PrintStream(out));
+            assertThat(command.call()).isZero();
+            String output = out.toString().trim();
+            assertThat(SimpleJson.parse(output)).isInstanceOf(java.util.Map.class);
+            assertThat(output).contains("\"pid\":100").doesNotContain("JVM MEMORY DIAGNOSTICS", "MEMORY POOLS");
+        } finally {
+            System.setOut(originalOut);
+        }
     }
 }

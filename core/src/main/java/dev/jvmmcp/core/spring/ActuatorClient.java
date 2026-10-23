@@ -9,6 +9,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.lang.System.Logger;
 import java.net.Socket;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -34,6 +35,8 @@ import java.util.zip.InflaterInputStream;
  * Supports basic and bearer authentication.
  */
 public class ActuatorClient {
+
+    private static final Logger LOGGER = System.getLogger(ActuatorClient.class.getName());
 
     private static final long MAX_PAYLOAD_SIZE = 30L * 1024 * 1024; // 30MB
     private final String baseUrl;
@@ -108,7 +111,7 @@ public class ActuatorClient {
             .connectTimeout(Duration.ofMillis(3000))
             .followRedirects(HttpClient.Redirect.NEVER);
         if (auth.insecure()) {
-            System.err.println("[jvm-mcp] WARNING: Insecure TLS mode enabled for Actuator. Server certificate verification is disabled.");
+            LOGGER.log(Logger.Level.WARNING, "Insecure TLS mode enabled for Actuator. Server certificate verification is disabled.");
             builder.sslContext(trustAllSslContext());
         }
         return builder.build();
@@ -326,7 +329,7 @@ public class ActuatorClient {
                         }
                     })
                     .exceptionally(ex -> {
-                        System.err.println("Failed to fetch metric " + name + ": " + ex.getMessage());
+                        LOGGER.log(Logger.Level.WARNING, "Failed to fetch metric {0}: {1}", name, ex.getMessage());
                         return dev.jvmmcp.core.util.SimpleJson.toJson(name) + ": {\"error\": \"Failed to fetch\"}"; 
                     });
             })
@@ -339,7 +342,7 @@ public class ActuatorClient {
         try {
             allFutures.join();
         } catch (Exception ex) {
-            System.err.println("Batch metrics operation timed out: " + ex.getMessage());
+            LOGGER.log(Logger.Level.WARNING, "Batch metrics operation timed out: {0}", ex.getMessage());
         }
 
         return futures.stream()

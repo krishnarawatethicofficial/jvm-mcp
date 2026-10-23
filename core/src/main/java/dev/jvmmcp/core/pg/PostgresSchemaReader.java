@@ -20,6 +20,8 @@ import java.util.Map;
 public class PostgresSchemaReader implements AutoCloseable {
 
     public static final long DEFAULT_MIN_TABLE_SIZE_BYTES = 1024L * 1024L;
+    public static final int DEFAULT_SLOW_QUERY_LIMIT = 20;
+    public static final int MAX_SLOW_QUERY_LIMIT = 100;
 
     private static final int MAX_CACHED_POOLS = 5;
     private static final int QUERY_TIMEOUT_SECONDS = 10;
@@ -381,6 +383,15 @@ public class PostgresSchemaReader implements AutoCloseable {
     }
 
     public SlowQueryAnalysis findSlowQueries() throws SQLException {
+        return findSlowQueries(DEFAULT_SLOW_QUERY_LIMIT);
+    }
+
+    /**
+     * Finds the slowest statements by mean execution time, returning at most {@code limit}
+     * of them. The limit is clamped to between 1 and {@link #MAX_SLOW_QUERY_LIMIT}.
+     */
+    public SlowQueryAnalysis findSlowQueries(int limit) throws SQLException {
+        int effectiveLimit = slowQueryLimit(limit);
         boolean hasExtension = false;
         try (Connection conn = getConnection()) {
             try (Statement stmt = conn.createStatement()) {
@@ -420,12 +431,13 @@ public class PostgresSchemaReader implements AutoCloseable {
                     dbid = (SELECT oid FROM pg_database WHERE datname = current_database())
                 ORDER BY
                     compatible_mean_time DESC
-                LIMIT 20
+                LIMIT ?
                 """;
             List<SlowQueryInfo> slowQueries = new ArrayList<>();
-            try (Statement stmt = conn.createStatement()) {
+            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
                 stmt.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
-                try (ResultSet rs = stmt.executeQuery(sql)) {
+                stmt.setInt(1, effectiveLimit);
+                try (ResultSet rs = stmt.executeQuery()) {
                     while (rs.next()) {
                         String rawQuery = rs.getString("query");
                         String sanitizedQuery = sanitizeQuery(rawQuery);
@@ -443,6 +455,10 @@ public class PostgresSchemaReader implements AutoCloseable {
             }
             return new SlowQueryAnalysis(true, slowQueries);
         }
+    }
+
+    static int slowQueryLimit(int limit) {
+        return Math.clamp(limit, 1, MAX_SLOW_QUERY_LIMIT);
     }
 
     static String sanitizeQuery(String query) {

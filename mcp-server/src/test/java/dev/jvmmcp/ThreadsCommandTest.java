@@ -11,6 +11,8 @@ import picocli.CommandLine;
 import dev.jvmmcp.core.jmx.ThreadMXBeanClient;
 import dev.jvmmcp.core.model.DeadlockReport;
 import dev.jvmmcp.core.model.ThreadDump;
+import dev.jvmmcp.core.model.ThreadSummary;
+import dev.jvmmcp.core.util.SimpleJson;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -392,5 +394,32 @@ class ThreadsCommandTest {
         String blankLine = System.lineSeparator() + System.lineSeparator();
         int end = output.indexOf(blankLine, start);
         return end < 0 ? output.substring(start) : output.substring(start, end);
+    }
+    @Test
+    @DisplayName("threads command should output only a JSON summary with --json")
+    void shouldOutputJsonThreadSummary() throws Exception {
+        long targetPid = 100L;
+        when(mockAttachService.attach(String.valueOf(targetPid))).thenReturn(AttachResult.success(String.valueOf(targetPid), null));
+        ThreadMXBeanClient mockClient = org.mockito.Mockito.mock(ThreadMXBeanClient.class);
+        ThreadSummary summary = new ThreadSummary(targetPid, 10, 2, 12, 50L, 5, 0, 3, 2);
+        when(mockClient.getThreadSummary(targetPid)).thenReturn(summary);
+
+        ThreadsCommand command = org.mockito.Mockito.spy(new ThreadsCommand(mockAttachService));
+        command.pid = targetPid;
+        command.json = true;
+        org.mockito.Mockito.doReturn(mockClient).when(command).createThreadMXBeanClient(org.mockito.ArgumentMatchers.any());
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        PrintStream originalOut = System.out;
+        try {
+            System.setOut(new PrintStream(out));
+            assertThat(command.call()).isZero();
+            String output = out.toString().trim();
+            assertThat(SimpleJson.parse(output)).isInstanceOf(java.util.Map.class);
+            assertThat(output).contains("\"pid\":100").doesNotContain("JVM THREAD DIAGNOSTICS", "DEADLOCK STATUS", "====");
+            org.mockito.Mockito.verify(mockClient, org.mockito.Mockito.never()).detectDeadlocks();
+        } finally {
+            System.setOut(originalOut);
+        }
     }
 }

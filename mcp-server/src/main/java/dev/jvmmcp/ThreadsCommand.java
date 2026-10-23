@@ -5,6 +5,7 @@ import dev.jvmmcp.core.attach.JvmAttachService;
 import dev.jvmmcp.core.jmx.JmxConnectionManager;
 import dev.jvmmcp.core.jmx.ThreadMXBeanClient;
 import dev.jvmmcp.core.model.*;
+import dev.jvmmcp.core.util.SimpleJson;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
@@ -28,6 +29,9 @@ public class ThreadsCommand implements Callable<Integer> {
 
     @Option(names = {"--dump", "-D"}, description = "Display full thread dump with stack traces")
     boolean dump;
+
+    @Option(names = {"--json"}, description = "Output thread summary in JSON format")
+    boolean json;
 
     @Option(names = {"--blocked", "-b"}, description = "List only blocked threads")
     boolean blockedOnly;
@@ -66,6 +70,11 @@ public class ThreadsCommand implements Callable<Integer> {
                     jmxManagerOwnsVm[0] = true;
 
                     ThreadMXBeanClient client = createThreadMXBeanClient(jmxManager);
+
+                if (json) {
+                    System.out.println(SimpleJson.toJson(client.getThreadSummary(pid)));
+                    return 0;
+                }
 
                 if (deadlocksOnly) {
                     printDeadlocks(client);
