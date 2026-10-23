@@ -15,6 +15,7 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
+import java.util.Locale;
 import java.util.concurrent.Callable;
 
 @Command(
@@ -68,8 +69,8 @@ public class MemoryCommand implements Callable<Integer> {
             com.sun.tools.attach.VirtualMachine vm = attachResult.virtualMachine().orElse(null);
             boolean[] jmxManagerOwnsVm = {false};
             try {
-                try (JmxConnectionManager jmxManager = vm != null 
-                        ? JmxConnectionManager.connect(vm, pid) 
+                try (JmxConnectionManager jmxManager = vm != null
+                        ? JmxConnectionManager.connect(vm, pid)
                         : JmxConnectionManager.connectLocal();
                      MemoryMXBeanClient client = new MemoryMXBeanClient(jmxManager.getMBeanServerConnection())) {
                     jmxManagerOwnsVm[0] = true;
@@ -82,24 +83,24 @@ public class MemoryCommand implements Callable<Integer> {
                     }
 
                 System.out.println("=".repeat(80));
-                System.out.printf(" JVM MEMORY DIAGNOSTICS FOR PID %d%n", pid);
+                System.out.printf(Locale.ROOT, " JVM MEMORY DIAGNOSTICS FOR PID %d%n", pid);
                 System.out.println("=".repeat(80));
 
-                System.out.printf("Heap Usage     : %.2f MB / %s (%s used)%n",
+                System.out.printf(Locale.ROOT, "Heap Usage     : %.2f MB / %s (%s used)%n",
                     summary.heap().usedMb(), quotaLabel(summary.heap()), usedPercentLabel(summary.heap()));
-                System.out.printf("Non-Heap Usage : %.2f MB / %s%n",
+                System.out.printf(Locale.ROOT, "Non-Heap Usage : %.2f MB / %s%n",
                     summary.nonHeap().usedMb(), quotaLabel(summary.nonHeap()));
-                System.out.printf("Pressure Status: %s (Ratio: %.1f%%)%n", 
+                System.out.printf(Locale.ROOT, "Pressure Status: %s (Ratio: %.1f%%)%n",
                     summary.pressure().level(), summary.pressure().heapUsageRatio() * 100.0);
-                System.out.printf("Recommendation : %s%n", summary.pressure().recommendation());
+                System.out.printf(Locale.ROOT, "Recommendation : %s%n", summary.pressure().recommendation());
 
                 System.out.println("-".repeat(80));
                 System.out.println("MEMORY POOLS");
-                System.out.printf("%-30s %-12s %-16s %s%n", "POOL NAME", "TYPE", "USED (MB)", "MAX (MB)");
+                System.out.printf(Locale.ROOT, "%-30s %-12s %-16s %s%n", "POOL NAME", "TYPE", "USED (MB)", "MAX (MB)");
                 System.out.println("-".repeat(80));
 
                 for (MemoryPoolInfo pool : summary.pools()) {
-                    System.out.printf("%-30s %-12s %-16.2f %s%n",
+                    System.out.printf(Locale.ROOT, "%-30s %-12s %-16.2f %s%n",
                         pool.name(),
                         pool.type(),
                         pool.usage().usedMb(),
@@ -109,8 +110,8 @@ public class MemoryCommand implements Callable<Integer> {
 
                 if (histogram) {
                     System.out.println("-".repeat(80));
-                    System.out.printf("HEAP HISTOGRAM (TOP %d CLASSES)%n", topN);
-                    System.out.printf("%-6s %-14s %-14s %s%n", "RANK", "INSTANCES", "BYTES (MB)", "CLASS NAME");
+                    System.out.printf(Locale.ROOT, "HEAP HISTOGRAM (TOP %d CLASSES)%n", topN);
+                    System.out.printf(Locale.ROOT, "%-6s %-14s %-14s %s%n", "RANK", "INSTANCES", "BYTES (MB)", "CLASS NAME");
                     System.out.println("-".repeat(80));
 
                     try {
@@ -130,7 +131,7 @@ public class MemoryCommand implements Callable<Integer> {
                             hist = reader.readHistogram(jmxManager.getMBeanServerConnection(), pid, topN);
                         }
                         for (ClassHistogramItem item : hist.topClasses()) {
-                            System.out.printf("%-6d %-14d %-14.2f %s%n",
+                            System.out.printf(Locale.ROOT, "%-6d %-14d %-14.2f %s%n",
                                 item.rank(),
                                 item.instances(),
                                 item.megabytes(),
@@ -164,14 +165,14 @@ public class MemoryCommand implements Callable<Integer> {
      * a real bound and stays numeric.
      */
     private static String quotaLabel(MemoryUsageInfo usage) {
-        return usage.maxBytes() < 0 ? UNBOUNDED_LABEL : String.format("%.2f MB", usage.maxMb());
+        return usage.maxBytes() < 0 ? UNBOUNDED_LABEL : String.format(Locale.ROOT, "%.2f MB", usage.maxMb());
     }
 
     private static String maxMbLabel(MemoryUsageInfo usage) {
-        return usage.maxBytes() < 0 ? UNBOUNDED_LABEL : String.format("%.2f", usage.maxMb());
+        return usage.maxBytes() < 0 ? UNBOUNDED_LABEL : String.format(Locale.ROOT, "%.2f", usage.maxMb());
     }
 
     private static String usedPercentLabel(MemoryUsageInfo usage) {
-        return usage.maxBytes() < 0 ? UNKNOWN_PERCENT_LABEL : String.format("%.1f%%", usage.usedPercent());
+        return usage.maxBytes() < 0 ? UNKNOWN_PERCENT_LABEL : String.format(Locale.ROOT, "%.1f%%", usage.usedPercent());
     }
 }
