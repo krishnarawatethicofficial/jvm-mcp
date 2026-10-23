@@ -158,6 +158,52 @@ class ListCommandTest {
     }
 
     @Test
+    @DisplayName("list without --attachable should include all JVM processes")
+    void shouldIncludeAllJvmsByDefault() {
+        List<JvmProcess> jvms = List.of(
+            new JvmProcess(
+                101L,
+                "AttachableApp",
+                "com.example.AttachableMain",
+                "21",
+                Framework.PLAIN_JAVA,
+                true
+            ),
+            new JvmProcess(
+                102L,
+                "NotAttachableApp",
+                "com.example.NotAttachableMain",
+                "21",
+                Framework.PLAIN_JAVA,
+                false
+            )
+        );
+
+        when(mockAttachService.listJvms()).thenReturn(jvms);
+
+        CommandLine cmd = new CommandLine(
+            new ListCommand(mockAttachService)
+        );
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        PrintStream originalOut = System.out;
+
+        try {
+            System.setOut(new PrintStream(out));
+
+            int exitCode = cmd.execute();
+
+            assertThat(exitCode).isZero();
+
+            String output = out.toString();
+            assertThat(output).contains("AttachableApp");
+            assertThat(output).contains("NotAttachableApp");
+        } finally {
+            System.setOut(originalOut);
+        }
+    }
+
+    @Test
     @DisplayName("Direct invocation when no JVMs are found should print discovery message")
     void shouldHandleEmptyJvmList() {
         when(mockAttachService.listJvms()).thenReturn(Collections.emptyList());
