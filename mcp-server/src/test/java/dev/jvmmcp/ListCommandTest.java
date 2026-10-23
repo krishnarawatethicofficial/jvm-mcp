@@ -58,28 +58,100 @@ class ListCommandTest {
     @DisplayName("Direct invocation of ListCommand should format running JVMs with truncation")
     void shouldFormatJvmListWithTruncation() {
         String exact28 = "1234567890123456789012345678";
+
         List<JvmProcess> jvms = List.of(
-            new JvmProcess(101L, "LongApp", "org.example.service.very.long.package.name.MainApplicationClass", "21", Framework.SPRING_BOOT, true),
-            new JvmProcess(102L, "ShortApp", "App", "21", Framework.QUARKUS, true),
-            new JvmProcess(103L, "ExactApp", exact28, "21", Framework.PLAIN_JAVA, true)
+            new JvmProcess(
+                101L,
+                "LongApp",
+                "org.example.service.very.long.package.name.MainApplicationClass",
+                "21",
+                Framework.SPRING_BOOT,
+                true
+            ),
+            new JvmProcess(
+                102L,
+                "ShortApp",
+                "App",
+                "21",
+                Framework.QUARKUS,
+                true
+            ),
+            new JvmProcess(
+                103L,
+                "ExactApp",
+                exact28,
+                "21",
+                Framework.PLAIN_JAVA,
+                true
+            )
         );
+
         when(mockAttachService.listJvms()).thenReturn(jvms);
 
         ListCommand command = new ListCommand(mockAttachService);
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         PrintStream originalOut = System.out;
+
         try {
             System.setOut(new PrintStream(out));
             Integer exitCode = command.call();
 
             assertThat(exitCode).isZero();
+
             String output = out.toString();
-            assertThat(output).contains("PID        FRAMEWORK        MAIN CLASS                     DISPLAY NAME");
-            assertThat(output).contains("-".repeat(80));
-            assertThat(output).contains("101        Spring Boot      org.example.service.very....   LongApp");
-            assertThat(output).contains("102        Quarkus          App                            ShortApp");
-            assertThat(output).contains("103        Plain Java       " + exact28 + "   ExactApp");
+            assertThat(output).contains("ATTACHABLE");
+            assertThat(output).contains("-".repeat(100));
+            assertThat(output)
+                .contains("101        Spring Boot      org.example.service.very....   LongApp");
+            assertThat(output)
+                .contains("102        Quarkus          App                            ShortApp");
+            assertThat(output)
+                .contains("103        Plain Java       " + exact28 + "   ExactApp");
+        } finally {
+            System.setOut(originalOut);
+        }
+    }
+
+    @Test
+    @DisplayName("--attachable should show only attachable JVM processes")
+    void shouldFilterAttachableJvms() {
+        List<JvmProcess> jvms = List.of(
+            new JvmProcess(
+                101L,
+                "AttachableApp",
+                "com.example.AttachableMain",
+                "21",
+                Framework.PLAIN_JAVA,
+                true
+            ),
+            new JvmProcess(
+                102L,
+                "NotAttachableApp",
+                "com.example.NotAttachableMain",
+                "21",
+                Framework.PLAIN_JAVA,
+                false
+            )
+        );
+
+        when(mockAttachService.listJvms()).thenReturn(jvms);
+
+        CommandLine cmd = new CommandLine(new ListCommand(mockAttachService));
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        PrintStream originalOut = System.out;
+
+        try {
+            System.setOut(new PrintStream(out));
+
+            int exitCode = cmd.execute("--attachable");
+
+            assertThat(exitCode).isZero();
+
+            String output = out.toString();
+            assertThat(output).contains("AttachableApp");
+            assertThat(output).doesNotContain("NotAttachableApp");
         } finally {
             System.setOut(originalOut);
         }
@@ -94,12 +166,14 @@ class ListCommandTest {
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         PrintStream originalOut = System.out;
+
         try {
             System.setOut(new PrintStream(out));
             Integer exitCode = command.call();
 
             assertThat(exitCode).isZero();
-            assertThat(out.toString()).contains("No running JVM processes discovered.");
+            assertThat(out.toString())
+                .contains("No running JVM processes discovered.");
         } finally {
             System.setOut(originalOut);
         }
@@ -109,6 +183,7 @@ class ListCommandTest {
     @DisplayName("Default constructor should initialize properly")
     void shouldInitializeWithDefaultConstructor() {
         ListCommand command = new ListCommand();
+
         assertThat(command).isNotNull();
     }
 }

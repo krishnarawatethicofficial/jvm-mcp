@@ -3,6 +3,7 @@ package dev.jvmmcp;
 import dev.jvmmcp.core.attach.JvmAttachService;
 import dev.jvmmcp.core.model.JvmProcess;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.Option;
 
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -16,6 +17,11 @@ import java.util.concurrent.Callable;
 public class ListCommand implements Callable<Integer> {
 
     private final JvmAttachService service;
+	@Option(
+    names = "--attachable",
+    description = "List only attachable JVM processes"
+)
+private boolean attachableOnly;
 
     public ListCommand() {
         this.service = new JvmAttachService();
@@ -28,14 +34,19 @@ public class ListCommand implements Callable<Integer> {
     @Override
     public Integer call() {
         List<JvmProcess> jvms = service.listJvms();
+		if (attachableOnly) {
+		jvms = jvms.stream()
+			.filter(JvmProcess::isAttachable)
+			.toList();
+}
 
         if (jvms.isEmpty()) {
             System.out.println("No running JVM processes discovered.");
             return 0;
         }
 
-        System.out.printf("%-10s %-16s %-30s %s%n", "PID", "FRAMEWORK", "MAIN CLASS", "DISPLAY NAME");
-        System.out.println("-".repeat(80));
+        System.out.printf("%-10s %-16s %-30s %-30s %-10s%n", "PID", "FRAMEWORK", "MAIN CLASS", "DISPLAY NAME", "ATTACHABLE");
+        System.out.println("-".repeat(100));
 
         for (JvmProcess jvm : jvms) {
             String mainClass = jvm.mainClass();
@@ -43,11 +54,12 @@ public class ListCommand implements Callable<Integer> {
                 mainClass = mainClass.substring(0, 25) + "...";
             }
             System.out.printf(
-                "%-10d %-16s %-30s %s%n",
+                "%-10d %-16s %-30s %-30s %-10s%n",
                 jvm.pid(),
                 jvm.framework().getDisplayName(),
                 mainClass,
-                jvm.displayName()
+                jvm.displayName(),
+		jvm.isAttachable()
             );
         }
         return 0;
