@@ -285,7 +285,7 @@ The server exposes 14 diagnostic tools to AI assistants:
 | `list_hikari_pools` | HikariCP pool metrics, active/idle connections, and leak warnings. | `pid` (number) |
 | `inspect_pg_schema` | PostgreSQL table schema, columns, row estimates, and foreign keys. | `url` (string), `schema` (string, optional) |
 | `find_missing_indexes` | High sequential scan tables with low index usage via `pg_stat_user_tables`. | `url` (string), `schema` (string, optional), `minTableSizeMb` (integer, optional) |
-| `find_slow_queries` | Slow query execution profiles from `pg_stat_statements`. | `url` (string) |
+| `find_slow_queries` | Slow query execution profiles from `pg_stat_statements`. | `url` (string), `limit` (integer, optional) |
 | `get_actuator_health` | Recursively parsed Spring Boot `/actuator/health` component status. | `url` (string) |
 | `get_actuator_metrics` | Batch or individual diagnostic metric values from `/actuator/metrics`. | `url` (string), `metrics` (string, optional) |
 | `get_actuator_startup` | Startup timeline and slowest beans from `/actuator/startup`. | `url` (string) |
@@ -299,6 +299,13 @@ jvm-mcp pg --url "jdbc:postgresql://localhost:5432/mydb" --action missing-indexe
 ```
 
 Java callers can use `findMissingIndexes(schemaName, minTableSizeBytes)` for a threshold in bytes.
+
+Slow-query analysis returns the 20 statements with the highest mean execution time by default.
+Set `limit` (or `--limit` on the CLI) to return between 1 and 100 of them:
+
+```bash
+jvm-mcp pg --url "jdbc:postgresql://localhost:5432/mydb" --action slow-queries --limit 5
+```
 
 ---
 

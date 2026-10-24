@@ -15,6 +15,7 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.management.MBeanServerConnection;
@@ -105,6 +106,34 @@ class ThreadMXBeanClientTest {
 
         boolean hasStackTrace = dump.threads().stream().anyMatch(t -> !t.stackTrace().isEmpty());
         assertThat(hasStackTrace).isTrue();
+    }
+
+    @Test
+    @DisplayName("getThreadDump marks virtualThreads as empty list when virtual thread reader returns zero threads")
+    void shouldReturnEmptyVirtualThreadsWhenReaderReturnsZero() throws IOException {
+        VirtualThreadDumpReader mockReader = org.mockito.Mockito.mock(VirtualThreadDumpReader.class);
+        org.mockito.Mockito.when(mockReader.readVirtualThreads(org.mockito.ArgumentMatchers.any()))
+            .thenReturn(Optional.of(List.of()));
+
+        ThreadMXBeanClient client = new ThreadMXBeanClient(connectionManager.getMBeanServerConnection(), mockReader);
+        ThreadDump dump = client.getThreadDump(42L);
+
+        assertThat(dump.virtualThreads()).isNotNull().isEmpty();
+        assertThat(dump.threads()).isNotEmpty();
+    }
+
+    @Test
+    @DisplayName("getThreadDump marks virtualThreads as null when virtual thread reader returns empty or is unavailable")
+    void shouldReturnNullVirtualThreadsWhenReaderUnavailable() throws IOException {
+        VirtualThreadDumpReader mockReader = org.mockito.Mockito.mock(VirtualThreadDumpReader.class);
+        org.mockito.Mockito.when(mockReader.readVirtualThreads(org.mockito.ArgumentMatchers.any()))
+            .thenReturn(Optional.empty());
+
+        ThreadMXBeanClient client = new ThreadMXBeanClient(connectionManager.getMBeanServerConnection(), mockReader);
+        ThreadDump dump = client.getThreadDump(42L);
+
+        assertThat(dump.virtualThreads()).isNull();
+        assertThat(dump.threads()).isNotEmpty();
     }
 
     @Test

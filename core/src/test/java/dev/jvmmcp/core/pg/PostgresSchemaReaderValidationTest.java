@@ -3,6 +3,7 @@ package dev.jvmmcp.core.pg;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -130,5 +131,12 @@ class PostgresSchemaReaderValidationTest {
         String plain = "SELECT id, name FROM customers WHERE region = $1";
         org.assertj.core.api.Assertions.assertThat(PostgresSchemaReader.sanitizeQuery(plain)).isEqualTo(plain);
         org.assertj.core.api.Assertions.assertThat(PostgresSchemaReader.sanitizeQuery(null)).isNull();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"5, 5", "20, 20", "100, 100", "101, 100", "0, 1", "-3, 1"})
+    @DisplayName("Slow query limit is clamped to between 1 and 100")
+    void slowQueryLimitIsClamped(int requested, int expected) {
+        org.assertj.core.api.Assertions.assertThat(PostgresSchemaReader.slowQueryLimit(requested)).isEqualTo(expected);
     }
 }

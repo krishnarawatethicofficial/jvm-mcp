@@ -9,6 +9,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.lang.System.Logger;
 import java.net.Socket;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -34,6 +35,8 @@ import java.util.zip.InflaterInputStream;
  * Supports basic and bearer authentication.
  */
 public class ActuatorClient {
+
+    private static final Logger LOGGER = System.getLogger(ActuatorClient.class.getName());
 
     private static final long MAX_PAYLOAD_SIZE = 30L * 1024 * 1024; // 30MB
     private final String baseUrl;
@@ -108,7 +111,7 @@ public class ActuatorClient {
             .connectTimeout(Duration.ofMillis(3000))
             .followRedirects(HttpClient.Redirect.NEVER);
         if (auth.insecure()) {
-            System.err.println("[jvm-mcp] WARNING: Insecure TLS mode enabled for Actuator. Server certificate verification is disabled.");
+            LOGGER.log(Logger.Level.WARNING, "Insecure TLS mode enabled for Actuator. Server certificate verification is disabled.");
             builder.sslContext(trustAllSslContext());
         }
         return builder.build();
@@ -303,18 +306,36 @@ public class ActuatorClient {
         return fetchEndpoint("/actuator/metrics/" + java.net.URLEncoder.encode(metricName, StandardCharsets.UTF_8));
     }
 
+    private record MetricBatchTask(
+        String name,
+        CompletableFuture<HttpResponse<String>> httpFuture,
+        CompletableFuture<String> resultFuture
+    ) {}
+
     public String getMetricsBatch(List<String> metricNames) {
+        return getMetricsBatch(metricNames, Duration.ofSeconds(10));
+    }
+
+    String getMetricsBatch(List<String> metricNames, Duration timeout) {
         if (metricNames == null || metricNames.isEmpty()) {
             return getMetrics();
         }
 
-        List<CompletableFuture<String>> futures = metricNames.stream()
+        Duration effectiveTimeout = (timeout == null || timeout.isNegative() || timeout.isZero())
+            ? Duration.ofSeconds(10)
+            : timeout;
+        long timeoutMillis = Math.max(1L, effectiveTimeout.toMillis());
+
+        List<MetricBatchTask> tasks = metricNames.stream()
             .map(name -> {
                 String encodedName = java.net.URLEncoder.encode(name.trim(), StandardCharsets.UTF_8);
                 String targetUrl = baseUrl + "/actuator/metrics/" + encodedName;
                 HttpRequest request = newRequest(targetUrl).GET().build();
 
-                return httpClient.sendAsync(request, limitingStringHandler(MAX_PAYLOAD_SIZE))
+                CompletableFuture<HttpResponse<String>> httpFuture =
+                    httpClient.sendAsync(request, limitingStringHandler(MAX_PAYLOAD_SIZE));
+
+                CompletableFuture<String> resultFuture = httpFuture
                     .thenApply(response -> {
                         String jsonKey = dev.jvmmcp.core.util.SimpleJson.toJson(name);
                         if (response.statusCode() == 200) {
@@ -326,24 +347,58 @@ public class ActuatorClient {
                         }
                     })
                     .exceptionally(ex -> {
-                        System.err.println("Failed to fetch metric " + name + ": " + ex.getMessage());
+                        Throwable cause = ex instanceof java.util.concurrent.CompletionException ? ex.getCause() : ex;
+                        if (cause instanceof java.util.concurrent.CancellationException
+                                || cause instanceof java.util.concurrent.TimeoutException
+                                || cause instanceof java.net.http.HttpTimeoutException) {
+                            return dev.jvmmcp.core.util.SimpleJson.toJson(name) + ": {\"error\": \"Request timed out\"}";
+                        }
+                        LOGGER.log(Logger.Level.WARNING, "Failed to fetch metric {0}: {1}", name, ex.getMessage());
                         return dev.jvmmcp.core.util.SimpleJson.toJson(name) + ": {\"error\": \"Failed to fetch\"}"; 
                     });
+
+                return new MetricBatchTask(name, httpFuture, resultFuture);
             })
             .toList();
 
-        CompletableFuture<Void> allFutures = CompletableFuture.allOf(
-            futures.toArray(new CompletableFuture[0])
-        ).orTimeout(10, TimeUnit.SECONDS);
+        CompletableFuture<?>[] resultFutures = tasks.stream()
+            .map(MetricBatchTask::resultFuture)
+            .toArray(CompletableFuture[]::new);
+
+        CompletableFuture<Void> allFutures = CompletableFuture.allOf(resultFutures)
+            .orTimeout(timeoutMillis, TimeUnit.MILLISECONDS);
 
         try {
             allFutures.join();
         } catch (Exception ex) {
-            System.err.println("Batch metrics operation timed out: " + ex.getMessage());
+            if (ex.getCause() instanceof InterruptedException || Thread.currentThread().isInterrupted()) {
+                Thread.currentThread().interrupt();
+            }
+            LOGGER.log(Logger.Level.WARNING, "Batch metrics operation timed out: {0}", ex.getMessage());
         }
 
-        return futures.stream()
-            .map(CompletableFuture::join)
+        for (MetricBatchTask task : tasks) {
+            if (!task.resultFuture.isDone()) {
+                task.resultFuture.complete(
+                    dev.jvmmcp.core.util.SimpleJson.toJson(task.name) + ": {\"error\": \"Request timed out\"}"
+                );
+                try {
+                    task.httpFuture.cancel(true);
+                } catch (Exception ignored) {
+                }
+            }
+        }
+
+        return tasks.stream()
+            .map(task -> {
+                try {
+                    return task.resultFuture.getNow(
+                        dev.jvmmcp.core.util.SimpleJson.toJson(task.name) + ": {\"error\": \"Request timed out\"}"
+                    );
+                } catch (Exception e) {
+                    return dev.jvmmcp.core.util.SimpleJson.toJson(task.name) + ": {\"error\": \"Failed to fetch\"}";
+                }
+            })
             .filter(Objects::nonNull)
             .collect(Collectors.joining(", ", "{", "}"));
     }
