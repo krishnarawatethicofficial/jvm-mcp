@@ -36,6 +36,7 @@ public class ListCommand implements Callable<Integer> {
     @Override
     public Integer call() {
         List<JvmProcess> jvms = service.listJvms();
+
         if (attachableOnly) {
             jvms = jvms.stream().filter(JvmProcess::isAttachable).toList();
         }
@@ -60,14 +61,21 @@ public class ListCommand implements Callable<Integer> {
             if (mainClass.length() > 28) {
                 mainClass = mainClass.substring(0, 25) + "...";
             }
+
+            String displayName = jvm.displayName();
+            if (displayName.length() > 28) {
+                displayName = displayName.substring(0, 25) + "...";
+            }
+
             System.out.printf(
                     "%-10d %-16s %-30s %-30s %-10s%n",
                     jvm.pid(),
                     jvm.framework().getDisplayName(),
                     mainClass,
-                    jvm.displayName(),
+                    displayName,
                     jvm.isAttachable());
         }
+
         return 0;
     }
 }

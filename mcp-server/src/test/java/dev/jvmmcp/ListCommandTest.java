@@ -62,7 +62,7 @@ class ListCommandTest {
                 List.of(
                         new JvmProcess(
                                 101L,
-                                "LongApp",
+                                "abcdefghijklmnopqrstuvwxyz1234567890",
                                 "org.example.service.very.long.package.name.MainApplicationClass",
                                 "21",
                                 Framework.SPRING_BOOT,
@@ -88,7 +88,8 @@ class ListCommandTest {
             assertThat(output).contains("ATTACHABLE");
             assertThat(output).contains("-".repeat(100));
             assertThat(output)
-                    .contains("101        Spring Boot      org.example.service.very....   LongApp");
+                    .contains(
+                            "101        Spring Boot      org.example.service.very....   abcdefghijklmnopqrstuvwxy...");
             assertThat(output)
                     .contains(
                             "102        Quarkus          App                            ShortApp");
