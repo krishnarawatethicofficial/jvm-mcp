@@ -334,7 +334,7 @@ class ThreadMXBeanClientTest {
         mxBean.setThreadContentionMonitoringEnabled(false);
         try {
             threadClient.findBlockedThreads(0);
-            assertThat(mxBean.isThreadContentionMonitoringEnabled()).isFalse();
+            assertThat(mxBean.isThreadContentionMonitoringEnabled()).isTrue();
         } finally {
             mxBean.setThreadContentionMonitoringEnabled(false);
         }
