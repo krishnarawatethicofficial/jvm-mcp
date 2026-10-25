@@ -66,12 +66,12 @@ public class SpringBeansToolHandler implements ToolHandler {
             ),
             Map.of(
                 "name", "get_bean_detail",
-                "description", "Gets detailed information about a specific Spring Bean",
+                "description", "Gets detailed information about a Spring bean; exact case-sensitive name or alias is preferred, with case-insensitive fallback only when unambiguous",
                 "inputSchema", Map.of(
                     "type", "object",
                     "properties", Map.of(
                         "pid", Map.of("type", "number", "description", "Target JVM Process ID"),
-                        "beanName", Map.of("type", "string", "description", "Exact bean name")
+                        "beanName", Map.of("type", "string", "description", "Bean name or alias; case-sensitive exact match is preferred, with case-insensitive fallback only when unambiguous")
                     ),
                     "required", List.of("pid", "beanName")
                 )
@@ -102,12 +102,19 @@ public class SpringBeansToolHandler implements ToolHandler {
                 content.add(Map.of("type", "text", "text", SimpleJson.toJson(report)));
             } else if ("get_bean_detail".equals(toolName)) {
                 String beanName = ToolArgs.getStringArg(args, "beanName", true);
-                var detailOpt = beansClient.getBeanDetail(report, beanName);
-                if (detailOpt.isPresent()) {
-                    content.add(Map.of("type", "text", "text", SimpleJson.toJson(detailOpt.get())));
-                } else {
+                try {
+                    var detailOpt = beansClient.getBeanDetailMatch(report, beanName);
+                    if (detailOpt.isPresent()) {
+                        content.add(Map.of("type", "text", "text", SimpleJson.toJson(detailOpt.get())));
+                    } else {
+                        return Map.of(
+                            "content", List.of(Map.of("type", "text", "text", "Bean not found: '" + beanName + "'. Use 'list_spring_beans' to inspect registered bean names and their contexts.")),
+                            "isError", true
+                        );
+                    }
+                } catch (SpringBeansClient.AmbiguousBeanMatchException e) {
                     return Map.of(
-                        "content", List.of(Map.of("type", "text", "text", "Bean not found: '" + beanName + "'. Use 'list_spring_beans' to inspect registered bean names in this ApplicationContext.")),
+                        "content", List.of(Map.of("type", "text", "text", e.getMessage())),
                         "isError", true
                     );
                 }

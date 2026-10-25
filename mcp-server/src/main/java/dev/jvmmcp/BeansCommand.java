@@ -32,7 +32,7 @@ public class BeansCommand implements Callable<Integer> {
     @Option(names = {"--filter", "-f"}, description = "Filter beans by name or type using glob patterns (e.g. '*Service*', '*Repository*')")
     String filter;
 
-    @Option(names = {"--detail", "-d"}, description = "Show deep inspection of a specific bean by name or alias")
+    @Option(names = {"--detail", "-d"}, description = "Show bean details; exact name or alias is preferred, with case-insensitive fallback only when unambiguous")
     String detailBeanName;
 
     @Option(names = {"--actuator", "-a"}, description = "Direct Actuator Base URL (e.g. 'http://localhost:8080')")
@@ -135,13 +135,18 @@ public class BeansCommand implements Callable<Integer> {
 
         if (json) {
             if (detailBeanName != null && !detailBeanName.isBlank()) {
-                Optional<SpringBeanDetail> detailOpt = client.getBeanDetail(report, detailBeanName);
-                if (detailOpt.isEmpty()) {
-                    System.err.printf("[jvm-mcp] Bean '%s' not found in active contexts.%n", detailBeanName);
+                try {
+                    Optional<SpringBeansClient.BeanDetailMatch> detailOpt = client.getBeanDetailMatch(report, detailBeanName);
+                    if (detailOpt.isEmpty()) {
+                        System.err.printf("[jvm-mcp] Bean '%s' not found in active contexts.%n", detailBeanName);
+                        return 1;
+                    }
+                    System.out.println(SimpleJson.toJson(detailOpt.get()));
+                    return 0;
+                } catch (SpringBeansClient.AmbiguousBeanMatchException e) {
+                    System.err.println("[jvm-mcp] Error: " + e.getMessage());
                     return 1;
                 }
-                System.out.println(SimpleJson.toJson(detailOpt.get()));
-                return 0;
             }
             System.out.println(SimpleJson.toJson(report));
             return 0;
@@ -195,20 +200,28 @@ public class BeansCommand implements Callable<Integer> {
     }
 
     private int printBeanDetail(SpringBeansClient client, SpringBeansReport report, String beanName) {
-        Optional<SpringBeanDetail> detailOpt = client.getBeanDetail(report, beanName);
-
-        if (detailOpt.isEmpty()) {
-            System.err.printf("[jvm-mcp] Bean '%s' not found in active contexts.%n", beanName);
+        final SpringBeansClient.BeanDetailMatch match;
+        try {
+            Optional<SpringBeansClient.BeanDetailMatch> detailOpt = client.getBeanDetailMatch(report, beanName);
+            if (detailOpt.isEmpty()) {
+                System.err.printf("[jvm-mcp] Bean '%s' not found in active contexts.%n", beanName);
+                return 1;
+            }
+            match = detailOpt.get();
+        } catch (SpringBeansClient.AmbiguousBeanMatchException e) {
+            System.err.println("[jvm-mcp] Error: " + e.getMessage());
             return 1;
         }
 
-        SpringBeanDetail bean = detailOpt.get();
+        SpringBeanDetail bean = match.bean();
         System.out.println("=".repeat(80));
         System.out.printf(" BEAN DETAIL: %s%n", bean.name());
         System.out.println("=".repeat(80));
+        System.out.printf("Context     : %s%n", match.contextId() != null ? match.contextId() : "unknown");
+        System.out.printf("Match       : %s%n", formatMatchMode(match.matchedBy()));
         System.out.printf("Type        : %s%n", bean.type());
         System.out.printf("Scope       : %s%n", bean.scope());
-        System.out.printf("Aliases     : %s%n", bean.aliases().isEmpty() ? "none" : String.join(", ", bean.aliases()));
+        System.out.printf("Aliases     : %s%n", bean.aliases() == null || bean.aliases().isEmpty() ? "none" : String.join(", ", bean.aliases()));
         System.out.printf("Resource    : %s%n", bean.resource() != null ? bean.resource() : "unknown");
         System.out.println("-".repeat(80));
         System.out.printf("DIRECT DEPENDENCIES (%d)%n", bean.dependencies().size());
@@ -220,6 +233,13 @@ public class BeansCommand implements Callable<Integer> {
             }
         }
         return 0;
+    }
+
+    private String formatMatchMode(String matchedBy) {
+        if ("CASE_INSENSITIVE_FALLBACK".equals(matchedBy)) {
+            return "case-insensitive fallback";
+        }
+        return "exact";
     }
 
     private String truncate(String text, int max) {

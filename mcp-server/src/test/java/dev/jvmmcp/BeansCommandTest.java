@@ -452,8 +452,17 @@ class BeansCommandTest {
             assertThat(output).doesNotContain("BEAN DETAIL");
 
             Map<String, Object> parsed = dev.jvmmcp.core.util.SimpleJson.parseObject(output);
-            assertThat(parsed).containsEntry("name", "orderService");
-            assertThat(parsed).containsEntry("type", "dev.jvmmcp.samples.OrderServiceImplementation");
+            assertThat(parsed).containsEntry("contextId", "application");
+            assertThat(parsed).containsEntry("matchedBy", "EXACT");
+
+	    @SuppressWarnings("unchecked")
+	    Map<String, Object> bean = (Map<String, Object>) parsed.get("bean");
+
+	    assertThat(bean).containsEntry("name", "orderService");
+        assertThat(bean).containsEntry(
+            "type",
+            "dev.jvmmcp.samples.OrderServiceImplementation"
+        );
         } finally {
             System.setOut(originalOut);
         }

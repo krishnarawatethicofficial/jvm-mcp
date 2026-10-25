@@ -184,7 +184,7 @@ class SpringBeansToolHandlerTest {
     }
 
     @Test
-    @DisplayName("get_bean_detail returns bean detail JSON")
+    @DisplayName("get_bean_detail returns bean detail JSON with owning context and match mode")
     void testGetBeanDetailSuccess() throws Exception {
         when(mockAttachService.attach("123")).thenReturn(AttachResult.success("123", null));
         SpringBeanDetail bean = new SpringBeanDetail("orderService", List.of(), "singleton", "com.example.OrderService", null, List.of());
@@ -196,7 +196,9 @@ class SpringBeansToolHandlerTest {
             provider.connect().close();
             return report;
         });
-        when(mockBeansClient.getBeanDetail(report, "orderService")).thenReturn(Optional.of(bean));
+        when(mockBeansClient.getBeanDetailMatch(report, "orderService")).thenReturn(Optional.of(
+            new SpringBeansClient.BeanDetailMatch("root", bean, "EXACT")
+        ));
 
         SpringBeansToolHandler handler = new SpringBeansToolHandler(
             mockAttachService,
@@ -209,7 +211,8 @@ class SpringBeansToolHandlerTest {
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> content = (List<Map<String, Object>>) result.get("content");
         assertThat(content).hasSize(1);
-        assertThat(content.get(0).get("text").toString()).contains("com.example.OrderService");
+        assertThat(content.get(0).get("text").toString())
+            .contains("com.example.OrderService", "root", "EXACT", "contextId", "matchedBy");
     }
 
     @Test
@@ -224,7 +227,7 @@ class SpringBeansToolHandlerTest {
             provider.connect().close();
             return report;
         });
-        when(mockBeansClient.getBeanDetail(report, "missingBean")).thenReturn(Optional.empty());
+        when(mockBeansClient.getBeanDetailMatch(report, "missingBean")).thenReturn(Optional.empty());
 
         SpringBeansToolHandler handler = new SpringBeansToolHandler(
             mockAttachService,
