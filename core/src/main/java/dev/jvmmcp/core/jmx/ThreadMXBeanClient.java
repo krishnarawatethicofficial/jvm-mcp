@@ -197,6 +197,10 @@ public class ThreadMXBeanClient implements ThreadDiagnosticPort {
         }
 
         ThreadInfo[] threadInfos = threadMXBean.dumpAllThreads(true, true);
+        if (threadInfos == null) {
+            return List.of();
+        }
+
         List<BlockedThreadDetail> blockedList = new ArrayList<>();
 
         for (ThreadInfo info : threadInfos) {
