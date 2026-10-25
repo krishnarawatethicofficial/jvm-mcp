@@ -199,13 +199,10 @@ public class ThreadMXBeanClient implements ThreadDiagnosticPort {
         boolean contentionMonitored =
             threadMXBean.isThreadContentionMonitoringSupported();
 
-        ThreadInfo[] threadInfos = threadMXBean.dumpAllThreads(true, true);
-
-        if (threadInfos == null) {
-            return List.of();
+        if (contentionMonitored
+                && !threadMXBean.isThreadContentionMonitoringEnabled()) {
+            threadMXBean.setThreadContentionMonitoringEnabled(true);
         }
-
-        List<BlockedThreadDetail> blockedList = new ArrayList<>();
 
         ThreadInfo[] threadInfos = threadMXBean.dumpAllThreads(true, true);
         if (threadInfos == null) {
