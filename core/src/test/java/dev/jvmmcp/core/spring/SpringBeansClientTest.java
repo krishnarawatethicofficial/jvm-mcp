@@ -108,13 +108,16 @@ class SpringBeansClientTest {
     }
 
     @Test
-    @DisplayName("lazy JMX provider is used and closed after Actuator HTTP is unavailable")
+    @DisplayName("lazy JMX provider is used and closed after Actuator HTTP misses")
     void shouldUseAndCloseJmxConnectionAfterActuatorHttpMisses() throws Exception {
         when(actuatorProbe.probe(virtualMachine)).thenReturn(Optional.empty());
+
         JmxConnectionManager manager = org.mockito.Mockito.mock(JmxConnectionManager.class);
         when(manager.getMBeanServerConnection()).thenReturn(mbsc);
+
         ObjectName endpointName =
                 new ObjectName("org.springframework.boot:type=Endpoint,name=Beans");
+
         when(mbsc.isRegistered(endpointName)).thenReturn(true);
         when(mbsc.invoke(eq(endpointName), eq("beans"), any(), any()))
                 .thenReturn(SAMPLE_ACTUATOR_JSON);
@@ -151,6 +154,7 @@ class SpringBeansClientTest {
 
         ObjectName endpointName =
                 new ObjectName("org.springframework.boot:type=Endpoint,name=Beans");
+
         when(mbsc.isRegistered(endpointName)).thenReturn(true);
         when(mbsc.invoke(eq(endpointName), eq("beans"), any(), any()))
                 .thenReturn(SAMPLE_ACTUATOR_JSON);
@@ -170,9 +174,11 @@ class SpringBeansClientTest {
 
         ObjectName endpointName =
                 new ObjectName("org.springframework.boot:type=Endpoint,name=Beans");
+
         when(mbsc.isRegistered(endpointName)).thenReturn(true);
         when(mbsc.invoke(eq(endpointName), eq("beans"), any(), any()))
                 .thenThrow(new RuntimeException("Operation not found"));
+
         when(mbsc.getAttribute(endpointName, "Data"))
                 .thenReturn(
                         Map.of(
@@ -203,6 +209,7 @@ class SpringBeansClientTest {
                 new ObjectName("org.springframework.boot:type=Endpoint,name=Beans");
         ObjectName lowerEndpoint =
                 new ObjectName("org.springframework.boot:type=Endpoint,name=beans");
+
         when(mbsc.isRegistered(upperEndpoint)).thenReturn(false);
         when(mbsc.isRegistered(lowerEndpoint)).thenReturn(true);
         when(mbsc.invoke(eq(lowerEndpoint), eq("beans"), any(), any()))
@@ -241,23 +248,27 @@ class SpringBeansClientTest {
         // Filter matching type
         SpringBeansReport typeFiltered =
                 client.inspectBeans(123L, virtualMachine, mbsc, "*Service*");
+
         assertThat(typeFiltered.totalBeans()).isEqualTo(1);
         assertThat(typeFiltered.getAllBeans().get(0).name()).isEqualTo("orderService");
 
         // Filter matching alias
         SpringBeansReport aliasFiltered =
                 client.inspectBeans(123L, virtualMachine, mbsc, "orderSvc");
+
         assertThat(aliasFiltered.totalBeans()).isEqualTo(1);
         assertThat(aliasFiltered.getAllBeans().get(0).name()).isEqualTo("orderService");
 
         // Filter matching name
         SpringBeansReport nameFiltered =
                 client.inspectBeans(123L, virtualMachine, mbsc, "orderRepository");
+
         assertThat(nameFiltered.totalBeans()).isEqualTo(1);
         assertThat(nameFiltered.getAllBeans().get(0).name()).isEqualTo("orderRepository");
 
         // Filter with wildcard returns all
         SpringBeansReport allFiltered = client.inspectBeans(123L, virtualMachine, mbsc, "*");
+
         assertThat(allFiltered.totalBeans()).isEqualTo(2);
     }
 
@@ -270,19 +281,23 @@ class SpringBeansClientTest {
 
         SpringBeansReport reachableReport =
                 client.inspectFromActuatorUrl(123L, "http://reachable:8080", null);
+
         assertThat(reachableReport.discoverySource()).contains("ACTUATOR_HTTP");
         assertThat(reachableReport.totalBeans()).isEqualTo(2);
 
         SpringBeansReport unreachableReport =
                 client.inspectFromActuatorUrl(123L, "http://unreachable:8080", null);
+
         assertThat(unreachableReport.discoverySource()).contains("ACTUATOR_UNREACHABLE");
         assertThat(unreachableReport.totalBeans()).isZero();
     }
 
     @Test
-    @DisplayName(
-            "getBeanDetail handles edge cases and finds beans by case-insensitive name or alias")
+    @DisplayName("getBeanDetail handles invalid input, null bean names, and aliases safely")
     void shouldHandleGetBeanDetail() {
+        SpringBeanDetail nullNameBean =
+                new SpringBeanDetail(
+                        null, null, "singleton", "com.example.Unknown", null, List.of());
         SpringBeanDetail bean =
                 new SpringBeanDetail(
                         "orderService",
@@ -291,19 +306,142 @@ class SpringBeansClientTest {
                         "com.example.OrderService",
                         null,
                         List.of());
+
         SpringBeansReport report =
                 new SpringBeansReport(
                         123L,
                         "TEST",
-                        1,
-                        List.of(new SpringContextBeans("ctx", null, 1, List.of(bean))));
+                        2,
+                        List.of(
+                                new SpringContextBeans(
+                                        "ctx", null, 2, List.of(nullNameBean, bean))));
 
         assertThat(client.getBeanDetail(null, "orderService")).isEmpty();
         assertThat(client.getBeanDetail(report, null)).isEmpty();
         assertThat(client.getBeanDetail(report, "   ")).isEmpty();
+
+        assertThat(client.getBeanDetail(report, "orderService")).contains(bean);
         assertThat(client.getBeanDetail(report, "ORDERSERVICE")).contains(bean);
         assertThat(client.getBeanDetail(report, "ORDERSVC")).contains(bean);
         assertThat(client.getBeanDetail(report, "unknownBean")).isEmpty();
+
+        assertThat(client.getBeanDetailMatch(report, "orderService"))
+                .contains(new SpringBeansClient.BeanDetailMatch("ctx", bean, "EXACT"));
+
+        assertThat(client.getBeanDetailMatch(report, "ORDERSERVICE"))
+                .contains(
+                        new SpringBeansClient.BeanDetailMatch(
+                                "ctx", bean, "CASE_INSENSITIVE_FALLBACK"));
+    }
+
+    @Test
+    @DisplayName(
+            "getBeanDetail prefers the exact case-sensitive name even if another context appears first")
+    void shouldPreferExactNameOverCaseInsensitiveName() {
+        SpringBeanDetail upperCaseBean =
+                new SpringBeanDetail(
+                        "DataSource",
+                        List.of(),
+                        "singleton",
+                        "example.UpperDataSource",
+                        null,
+                        List.of());
+        SpringBeanDetail exactBean =
+                new SpringBeanDetail(
+                        "dataSource",
+                        List.of(),
+                        "singleton",
+                        "example.LowerDataSource",
+                        null,
+                        List.of());
+
+        SpringBeansReport report =
+                new SpringBeansReport(
+                        123L,
+                        "TEST",
+                        2,
+                        List.of(
+                                new SpringContextBeans(
+                                        "uppercase-context", null, 1, List.of(upperCaseBean)),
+                                new SpringContextBeans(
+                                        "exact-context", null, 1, List.of(exactBean))));
+
+        assertThat(client.getBeanDetailMatch(report, "dataSource"))
+                .contains(
+                        new SpringBeansClient.BeanDetailMatch("exact-context", exactBean, "EXACT"));
+    }
+
+    @Test
+    @DisplayName("getBeanDetail reports ambiguity when the exact name exists in multiple contexts")
+    void shouldReportAmbiguousBeanAcrossContexts() {
+        SpringBeanDetail firstBean =
+                new SpringBeanDetail(
+                        "orderService",
+                        List.of(),
+                        "singleton",
+                        "example.FirstOrderService",
+                        null,
+                        List.of());
+        SpringBeanDetail secondBean =
+                new SpringBeanDetail(
+                        "orderService",
+                        List.of(),
+                        "singleton",
+                        "example.SecondOrderService",
+                        null,
+                        List.of());
+
+        SpringBeansReport report =
+                new SpringBeansReport(
+                        123L,
+                        "TEST",
+                        2,
+                        List.of(
+                                new SpringContextBeans("context-a", null, 1, List.of(firstBean)),
+                                new SpringContextBeans("context-b", null, 1, List.of(secondBean))));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> client.getBeanDetailMatch(report, "orderService"))
+                .isInstanceOf(SpringBeansClient.AmbiguousBeanMatchException.class)
+                .hasMessageContaining("context-a", "context-b");
+    }
+
+    @Test
+    @DisplayName(
+            "getBeanDetail reports ambiguity when case-insensitive fallback matches multiple contexts")
+    void shouldReportAmbiguousCaseInsensitiveFallback() {
+        SpringBeanDetail lowerCaseBean =
+                new SpringBeanDetail(
+                        "dataSource",
+                        List.of(),
+                        "singleton",
+                        "example.LowerDataSource",
+                        null,
+                        List.of());
+        SpringBeanDetail upperCaseBean =
+                new SpringBeanDetail(
+                        "DataSource",
+                        List.of(),
+                        "singleton",
+                        "example.UpperDataSource",
+                        null,
+                        List.of());
+
+        SpringBeansReport report =
+                new SpringBeansReport(
+                        123L,
+                        "TEST",
+                        2,
+                        List.of(
+                                new SpringContextBeans(
+                                        "context-a", null, 1, List.of(lowerCaseBean)),
+                                new SpringContextBeans(
+                                        "context-b", null, 1, List.of(upperCaseBean))));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> client.getBeanDetailMatch(report, "DATASOURCE"))
+                .isInstanceOf(SpringBeansClient.AmbiguousBeanMatchException.class)
+                .hasMessageContaining("context-a", "context-b");
     }
 
     @Test
