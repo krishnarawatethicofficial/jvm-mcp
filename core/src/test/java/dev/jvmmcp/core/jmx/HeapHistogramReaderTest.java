@@ -1,21 +1,21 @@
 package dev.jvmmcp.core.jmx;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import dev.jvmmcp.core.model.HeapHistogram;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 class HeapHistogramReaderTest {
 
-    private static final String SAMPLE_HISTOGRAM = """
+    private static final String SAMPLE_HISTOGRAM =
+            """
          num     #instances         #bytes  class name (module)
         -------------------------------------------------------
            1:         45231        5427720  java.lang.String (java.base@21.0.3)
@@ -29,16 +29,21 @@ class HeapHistogramReaderTest {
     @DisplayName("readHistogram throws IllegalArgumentException when VirtualMachine is null")
     void shouldThrowWhenVmIsNull() {
         HeapHistogramReader reader = new HeapHistogramReader();
-        assertThatThrownBy(() -> reader.readHistogram((com.sun.tools.attach.VirtualMachine) null, 123L, 10))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("VirtualMachine cannot be null");
+        assertThatThrownBy(
+                        () ->
+                                reader.readHistogram(
+                                        (com.sun.tools.attach.VirtualMachine) null, 123L, 10))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("VirtualMachine cannot be null");
     }
 
     @Test
-    @DisplayName("parseHistogramStream correctly parses class rankings, instance counts, and byte sizes")
+    @DisplayName(
+            "parseHistogramStream correctly parses class rankings, instance counts, and byte sizes")
     void shouldParseHistogramStream() throws Exception {
         HeapHistogramReader reader = new HeapHistogramReader();
-        ByteArrayInputStream in = new ByteArrayInputStream(SAMPLE_HISTOGRAM.getBytes(StandardCharsets.UTF_8));
+        ByteArrayInputStream in =
+                new ByteArrayInputStream(SAMPLE_HISTOGRAM.getBytes(StandardCharsets.UTF_8));
 
         HeapHistogram histogram = reader.parseHistogramStream(in, 12345L, 3);
 
@@ -54,32 +59,36 @@ class HeapHistogramReaderTest {
         assertThat(histogram.topClasses().get(0).instances()).isEqualTo(45231L);
         assertThat(histogram.topClasses().get(0).bytes()).isEqualTo(5427720L);
         assertThat(histogram.topClasses().get(0).megabytes()).isPositive();
-        assertThat(histogram.topClasses().get(2).className()).isEqualTo("byte[] (java.base@21.0.3)");
+        assertThat(histogram.topClasses().get(2).className())
+                .isEqualTo("byte[] (java.base@21.0.3)");
     }
 
     @ParameterizedTest
-    @CsvSource(delimiter = '|', value = {
-        "[B|byte[]",
-        "[C|char[]",
-        "[D|double[]",
-        "[F|float[]",
-        "[I|int[]",
-        "[J|long[]",
-        "[S|short[]",
-        "[Z|boolean[]",
-        "[Ljava.lang.String;|java.lang.String[]",
-        "[Lcom.example.User;|com.example.User[]",
-        "[[B|byte[][]",
-        "[[Ljava.lang.Object;|java.lang.Object[][]",
-        "[B (java.base@21.0.3)|byte[] (java.base@21.0.3)",
-        "[Ljava.lang.String; (java.base@21.0.3)|java.lang.String[] (java.base@21.0.3)",
-        "java.lang.String (java.base@21.0.3)|java.lang.String (java.base@21.0.3)",
-        "com.example.OrderService|com.example.OrderService",
-        "[|[",
-        "[X|[X",
-        "[Ljava.lang.String|[Ljava.lang.String"
-    })
-    @DisplayName("normalizeClassName turns JVM array descriptors into Java type names and leaves the rest alone")
+    @CsvSource(
+            delimiter = '|',
+            value = {
+                "[B|byte[]",
+                "[C|char[]",
+                "[D|double[]",
+                "[F|float[]",
+                "[I|int[]",
+                "[J|long[]",
+                "[S|short[]",
+                "[Z|boolean[]",
+                "[Ljava.lang.String;|java.lang.String[]",
+                "[Lcom.example.User;|com.example.User[]",
+                "[[B|byte[][]",
+                "[[Ljava.lang.Object;|java.lang.Object[][]",
+                "[B (java.base@21.0.3)|byte[] (java.base@21.0.3)",
+                "[Ljava.lang.String; (java.base@21.0.3)|java.lang.String[] (java.base@21.0.3)",
+                "java.lang.String (java.base@21.0.3)|java.lang.String (java.base@21.0.3)",
+                "com.example.OrderService|com.example.OrderService",
+                "[|[",
+                "[X|[X",
+                "[Ljava.lang.String|[Ljava.lang.String"
+            })
+    @DisplayName(
+            "normalizeClassName turns JVM array descriptors into Java type names and leaves the rest alone")
     void shouldNormalizeArrayDescriptors(String raw, String expected) {
         assertThat(HeapHistogramReader.normalizeClassName(raw)).isEqualTo(expected);
     }
@@ -104,7 +113,8 @@ class HeapHistogramReaderTest {
     @Test
     @DisplayName("parseHistogramStream calculates totals from item sums when Total line is missing")
     void shouldCalculateTotalsWhenFooterMissing() throws Exception {
-        String noFooterOutput = """
+        String noFooterOutput =
+                """
              num     #instances         #bytes  class name
             ----------------------------------------------
                1:            10            100  java.lang.String
@@ -112,7 +122,8 @@ class HeapHistogramReaderTest {
             """;
 
         HeapHistogramReader reader = new HeapHistogramReader();
-        ByteArrayInputStream in = new ByteArrayInputStream(noFooterOutput.getBytes(StandardCharsets.UTF_8));
+        ByteArrayInputStream in =
+                new ByteArrayInputStream(noFooterOutput.getBytes(StandardCharsets.UTF_8));
 
         HeapHistogram histogram = reader.parseHistogramStream(in, 123L, 0); // topN <= 0 returns all
 
@@ -124,7 +135,8 @@ class HeapHistogramReaderTest {
     @Test
     @DisplayName("parseHistogramStream ignores malformed rows gracefully")
     void shouldIgnoreMalformedRows() throws Exception {
-        String malformedOutput = """
+        String malformedOutput =
+                """
              num     #instances         #bytes  class name
             ----------------------------------------------
              invalid_row_without_parts
@@ -134,7 +146,8 @@ class HeapHistogramReaderTest {
             """;
 
         HeapHistogramReader reader = new HeapHistogramReader();
-        ByteArrayInputStream in = new ByteArrayInputStream(malformedOutput.getBytes(StandardCharsets.UTF_8));
+        ByteArrayInputStream in =
+                new ByteArrayInputStream(malformedOutput.getBytes(StandardCharsets.UTF_8));
 
         HeapHistogram histogram = reader.parseHistogramStream(in, 123L, 10);
 
@@ -144,10 +157,25 @@ class HeapHistogramReaderTest {
 
     // Dummy VM class with executeJCmd for reflection test
     public static class DummyProvider extends com.sun.tools.attach.spi.AttachProvider {
-        @Override public String name() { return "dummy"; }
-        @Override public String type() { return "dummy"; }
-        @Override public com.sun.tools.attach.VirtualMachine attachVirtualMachine(String id) { return null; }
-        @Override public java.util.List<com.sun.tools.attach.VirtualMachineDescriptor> listVirtualMachines() { return java.util.List.of(); }
+        @Override
+        public String name() {
+            return "dummy";
+        }
+
+        @Override
+        public String type() {
+            return "dummy";
+        }
+
+        @Override
+        public com.sun.tools.attach.VirtualMachine attachVirtualMachine(String id) {
+            return null;
+        }
+
+        @Override
+        public java.util.List<com.sun.tools.attach.VirtualMachineDescriptor> listVirtualMachines() {
+            return java.util.List.of();
+        }
     }
 
     public static class FakeVirtualMachine extends com.sun.tools.attach.VirtualMachine {
@@ -159,14 +187,35 @@ class HeapHistogramReaderTest {
             return new ByteArrayInputStream(SAMPLE_HISTOGRAM.getBytes(StandardCharsets.UTF_8));
         }
 
-        @Override public void detach() {}
-        @Override public void loadAgentLibrary(String agentLibrary, String options) {}
-        @Override public void loadAgentPath(String agentPath, String options) {}
-        @Override public void loadAgent(String agent, String options) {}
-        @Override public java.util.Properties getSystemProperties() { return new java.util.Properties(); }
-        @Override public java.util.Properties getAgentProperties() { return new java.util.Properties(); }
-        @Override public void startManagementAgent(java.util.Properties agentProperties) {}
-        @Override public String startLocalManagementAgent() { return null; }
+        @Override
+        public void detach() {}
+
+        @Override
+        public void loadAgentLibrary(String agentLibrary, String options) {}
+
+        @Override
+        public void loadAgentPath(String agentPath, String options) {}
+
+        @Override
+        public void loadAgent(String agent, String options) {}
+
+        @Override
+        public java.util.Properties getSystemProperties() {
+            return new java.util.Properties();
+        }
+
+        @Override
+        public java.util.Properties getAgentProperties() {
+            return new java.util.Properties();
+        }
+
+        @Override
+        public void startManagementAgent(java.util.Properties agentProperties) {}
+
+        @Override
+        public String startLocalManagementAgent() {
+            return null;
+        }
     }
 
     @Test
@@ -182,25 +231,28 @@ class HeapHistogramReaderTest {
     }
 
     @Test
-    @DisplayName("readHistogram propagates NoSuchMethodException when executeJCmd is unavailable so callers can fall back")
+    @DisplayName(
+            "readHistogram propagates NoSuchMethodException when executeJCmd is unavailable so callers can fall back")
     void shouldPropagateMissingExecuteJCmd() {
         HeapHistogramReader reader = new HeapHistogramReader();
         com.sun.tools.attach.VirtualMachine vmWithoutJCmd = new NoExecuteJCmdVirtualMachine();
 
         assertThatThrownBy(() -> reader.readHistogram(vmWithoutJCmd, 123L, 2))
-            .isInstanceOf(NoSuchMethodException.class);
+                .isInstanceOf(NoSuchMethodException.class);
     }
 
     @Test
     @DisplayName("readHistogram parses the histogram returned by the DiagnosticCommand MBean")
     void shouldReadHistogramViaDiagnosticCommandMBean() throws Exception {
-        javax.management.MBeanServerConnection mbsc = org.mockito.Mockito.mock(javax.management.MBeanServerConnection.class);
-        org.mockito.Mockito.when(mbsc.invoke(
-                org.mockito.ArgumentMatchers.any(javax.management.ObjectName.class),
-                org.mockito.ArgumentMatchers.eq("gcClassHistogram"),
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any()))
-            .thenReturn(SAMPLE_HISTOGRAM);
+        javax.management.MBeanServerConnection mbsc =
+                org.mockito.Mockito.mock(javax.management.MBeanServerConnection.class);
+        org.mockito.Mockito.when(
+                        mbsc.invoke(
+                                org.mockito.ArgumentMatchers.any(javax.management.ObjectName.class),
+                                org.mockito.ArgumentMatchers.eq("gcClassHistogram"),
+                                org.mockito.ArgumentMatchers.any(),
+                                org.mockito.ArgumentMatchers.any()))
+                .thenReturn(SAMPLE_HISTOGRAM);
 
         HeapHistogramReader reader = new HeapHistogramReader();
         HeapHistogram histogram = reader.readHistogram(mbsc, 123L, 2);
@@ -216,9 +268,12 @@ class HeapHistogramReaderTest {
     @DisplayName("readHistogram throws IllegalArgumentException when MBeanServerConnection is null")
     void shouldThrowWhenMbscIsNull() {
         HeapHistogramReader reader = new HeapHistogramReader();
-        assertThatThrownBy(() -> reader.readHistogram((javax.management.MBeanServerConnection) null, 123L, 10))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("MBeanServerConnection cannot be null");
+        assertThatThrownBy(
+                        () ->
+                                reader.readHistogram(
+                                        (javax.management.MBeanServerConnection) null, 123L, 10))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("MBeanServerConnection cannot be null");
     }
 
     public static class NoExecuteJCmdVirtualMachine extends com.sun.tools.attach.VirtualMachine {
@@ -226,13 +281,34 @@ class HeapHistogramReaderTest {
             super(new DummyProvider(), "123");
         }
 
-        @Override public void detach() {}
-        @Override public void loadAgentLibrary(String agentLibrary, String options) {}
-        @Override public void loadAgentPath(String agentPath, String options) {}
-        @Override public void loadAgent(String agent, String options) {}
-        @Override public java.util.Properties getSystemProperties() { return new java.util.Properties(); }
-        @Override public java.util.Properties getAgentProperties() { return new java.util.Properties(); }
-        @Override public void startManagementAgent(java.util.Properties agentProperties) {}
-        @Override public String startLocalManagementAgent() { return null; }
+        @Override
+        public void detach() {}
+
+        @Override
+        public void loadAgentLibrary(String agentLibrary, String options) {}
+
+        @Override
+        public void loadAgentPath(String agentPath, String options) {}
+
+        @Override
+        public void loadAgent(String agent, String options) {}
+
+        @Override
+        public java.util.Properties getSystemProperties() {
+            return new java.util.Properties();
+        }
+
+        @Override
+        public java.util.Properties getAgentProperties() {
+            return new java.util.Properties();
+        }
+
+        @Override
+        public void startManagementAgent(java.util.Properties agentProperties) {}
+
+        @Override
+        public String startLocalManagementAgent() {
+            return null;
+        }
     }
 }

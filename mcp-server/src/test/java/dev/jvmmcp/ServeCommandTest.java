@@ -1,28 +1,26 @@
 package dev.jvmmcp;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
+
 import dev.jvmmcp.core.attach.AttachResult;
 import dev.jvmmcp.core.attach.JvmAttachService;
+import dev.jvmmcp.core.util.SimpleJson;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import dev.jvmmcp.core.util.SimpleJson;
 import picocli.CommandLine;
-
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
-import java.util.List;
-import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ServeCommandTest {
 
-    @Mock
-    private JvmAttachService mockAttachService;
+    @Mock private JvmAttachService mockAttachService;
 
     @Test
     @DisplayName("serve command with --help should display options and return exit code 0")
@@ -75,7 +73,10 @@ class ServeCommandTest {
         java.io.InputStream originalIn = ServeCommand.testInStream;
         try {
             System.setErr(new PrintStream(err));
-            ServeCommand.testInStream = new java.io.ByteArrayInputStream("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            ServeCommand.testInStream =
+                    new java.io.ByteArrayInputStream(
+                            "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}\n"
+                                    .getBytes(java.nio.charset.StandardCharsets.UTF_8));
             CommandLine cmd = new CommandLine(new JvmMcp());
             int exitCode = cmd.execute("serve", "--transport", "stdio");
 
@@ -91,7 +92,8 @@ class ServeCommandTest {
     @DisplayName("serve command with valid --attach PID should attach and return 0")
     void shouldAttachToValidPid() {
         long targetPid = 100L;
-        when(mockAttachService.attach(String.valueOf(targetPid))).thenReturn(AttachResult.success(String.valueOf(targetPid), null));
+        when(mockAttachService.attach(String.valueOf(targetPid)))
+                .thenReturn(AttachResult.success(String.valueOf(targetPid), null));
 
         ServeCommand command = new ServeCommand(mockAttachService);
         command.targetPid = (int) targetPid;
@@ -102,7 +104,10 @@ class ServeCommandTest {
         java.io.InputStream originalIn = ServeCommand.testInStream;
         try {
             System.setErr(new PrintStream(err));
-            ServeCommand.testInStream = new java.io.ByteArrayInputStream("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            ServeCommand.testInStream =
+                    new java.io.ByteArrayInputStream(
+                            "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}\n"
+                                    .getBytes(java.nio.charset.StandardCharsets.UTF_8));
             Integer exitCode = command.call();
 
             assertThat(exitCode).isZero();
@@ -118,7 +123,8 @@ class ServeCommandTest {
     @DisplayName("serve command with non-existent --attach PID should return exit code 1")
     void shouldFailOnNonExistentAttachPid() {
         long targetPid = 999999999L;
-        when(mockAttachService.attach(String.valueOf(targetPid))).thenReturn(AttachResult.processNotFound(String.valueOf(targetPid)));
+        when(mockAttachService.attach(String.valueOf(targetPid)))
+                .thenReturn(AttachResult.processNotFound(String.valueOf(targetPid)));
 
         ServeCommand command = new ServeCommand(mockAttachService);
         command.targetPid = (int) targetPid;
@@ -145,7 +151,10 @@ class ServeCommandTest {
 
         java.io.InputStream originalIn = ServeCommand.testInStream;
         try {
-            ServeCommand.testInStream = new java.io.ByteArrayInputStream("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            ServeCommand.testInStream =
+                    new java.io.ByteArrayInputStream(
+                            "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}\n"
+                                    .getBytes(java.nio.charset.StandardCharsets.UTF_8));
             Integer exitCode = command.call();
             assertThat(exitCode).isZero();
         } finally {
@@ -164,12 +173,15 @@ class ServeCommandTest {
         java.io.InputStream originalIn = ServeCommand.testInStream;
         try {
             System.setOut(new PrintStream(out));
-            String input = "{\"jsonrpc\": \"2.0\", \"id\": 1, \"method\": \"initialize\", \"params\": {\"protocolVersion\": \"2024-11-05\"}}\n";
-            ServeCommand.testInStream = new java.io.ByteArrayInputStream(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            
+            String input =
+                    "{\"jsonrpc\": \"2.0\", \"id\": 1, \"method\": \"initialize\", \"params\": {\"protocolVersion\": \"2024-11-05\"}}\n";
+            ServeCommand.testInStream =
+                    new java.io.ByteArrayInputStream(
+                            input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
             Integer exitCode = command.call();
             assertThat(exitCode).isZero();
-            
+
             String output = out.toString().trim();
             Map<String, Object> response = SimpleJson.parseObject(output);
             assertThat(response.get("jsonrpc")).isEqualTo("2.0");
@@ -194,21 +206,25 @@ class ServeCommandTest {
         java.io.InputStream originalIn = ServeCommand.testInStream;
         try {
             System.setOut(new PrintStream(out));
-            String input = "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/call\", \"params\": {\"name\": \"unknown_tool\", \"arguments\": {}}}\n";
-            ServeCommand.testInStream = new java.io.ByteArrayInputStream(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            
+            String input =
+                    "{\"jsonrpc\": \"2.0\", \"id\": 2, \"method\": \"tools/call\", \"params\": {\"name\": \"unknown_tool\", \"arguments\": {}}}\n";
+            ServeCommand.testInStream =
+                    new java.io.ByteArrayInputStream(
+                            input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
             Integer exitCode = command.call();
             assertThat(exitCode).isZero();
-            
+
             String output = out.toString().trim();
             Map<String, Object> response = SimpleJson.parseObject(output);
-            
+
             Map<String, Object> result = asMap(response.get("result"));
             assertThat(result).isNotNull();
             assertThat(result.get("isError")).isEqualTo(true);
             List<Map<String, Object>> content = asListOfMaps(result.get("content"));
             assertThat(content).isNotNull();
-            assertThat(content.get(0).get("text").toString()).contains("Unknown tool: unknown_tool");
+            assertThat(content.get(0).get("text").toString())
+                    .contains("Unknown tool: unknown_tool");
         } finally {
             System.setOut(originalOut);
             ServeCommand.testInStream = originalIn;
@@ -226,21 +242,25 @@ class ServeCommandTest {
         java.io.InputStream originalIn = ServeCommand.testInStream;
         try {
             System.setOut(new PrintStream(out));
-            String input = "{\"jsonrpc\": \"2.0\", \"id\": 3, \"method\": \"tools/call\", \"params\": {\"name\": \"get_memory_summary\", \"arguments\": {}}}\n";
-            ServeCommand.testInStream = new java.io.ByteArrayInputStream(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            
+            String input =
+                    "{\"jsonrpc\": \"2.0\", \"id\": 3, \"method\": \"tools/call\", \"params\": {\"name\": \"get_memory_summary\", \"arguments\": {}}}\n";
+            ServeCommand.testInStream =
+                    new java.io.ByteArrayInputStream(
+                            input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
             Integer exitCode = command.call();
             assertThat(exitCode).isZero();
-            
+
             String output = out.toString().trim();
             Map<String, Object> response = SimpleJson.parseObject(output);
-            
+
             Map<String, Object> result = asMap(response.get("result"));
             assertThat(result).isNotNull();
             assertThat(result.get("isError")).isEqualTo(true);
             List<Map<String, Object>> content = asListOfMaps(result.get("content"));
             assertThat(content).isNotNull();
-            assertThat(content.get(0).get("text").toString()).contains("Missing required argument: pid");
+            assertThat(content.get(0).get("text").toString())
+                    .contains("Missing required argument: pid");
         } finally {
             System.setOut(originalOut);
             ServeCommand.testInStream = originalIn;
@@ -259,7 +279,9 @@ class ServeCommandTest {
         try {
             System.setOut(new PrintStream(out));
             String input = "{\"jsonrpc\": \"2.0\", \"id\": 10, \"method\": \"ping\"}\n";
-            ServeCommand.testInStream = new java.io.ByteArrayInputStream(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            ServeCommand.testInStream =
+                    new java.io.ByteArrayInputStream(
+                            input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
             Integer exitCode = command.call();
             assertThat(exitCode).isZero();
@@ -286,7 +308,9 @@ class ServeCommandTest {
         try {
             System.setOut(new PrintStream(out));
             String input = "{\"jsonrpc\": \"2.0\", \"method\": \"notifications/initialized\"}\n";
-            ServeCommand.testInStream = new java.io.ByteArrayInputStream(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            ServeCommand.testInStream =
+                    new java.io.ByteArrayInputStream(
+                            input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
             Integer exitCode = command.call();
             assertThat(exitCode).isZero();
@@ -308,8 +332,11 @@ class ServeCommandTest {
         java.io.InputStream originalIn = ServeCommand.testInStream;
         try {
             System.setOut(new PrintStream(out));
-            String input = "{\"jsonrpc\": \"2.0\", \"id\": 11, \"method\": \"nonexistent/method\"}\n";
-            ServeCommand.testInStream = new java.io.ByteArrayInputStream(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            String input =
+                    "{\"jsonrpc\": \"2.0\", \"id\": 11, \"method\": \"nonexistent/method\"}\n";
+            ServeCommand.testInStream =
+                    new java.io.ByteArrayInputStream(
+                            input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
             Integer exitCode = command.call();
             assertThat(exitCode).isZero();
@@ -338,8 +365,11 @@ class ServeCommandTest {
         java.io.InputStream originalIn = ServeCommand.testInStream;
         try {
             System.setOut(new PrintStream(out));
-            String input = "{\"jsonrpc\": \"2.0\", \"id\": 12, \"method\": \"tools/call\", \"params\": {\"name\": \"list_jvms\", \"arguments\": {}}}\n";
-            ServeCommand.testInStream = new java.io.ByteArrayInputStream(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            String input =
+                    "{\"jsonrpc\": \"2.0\", \"id\": 12, \"method\": \"tools/call\", \"params\": {\"name\": \"list_jvms\", \"arguments\": {}}}\n";
+            ServeCommand.testInStream =
+                    new java.io.ByteArrayInputStream(
+                            input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
             Integer exitCode = command.call();
             assertThat(exitCode).isZero();
@@ -368,8 +398,11 @@ class ServeCommandTest {
         java.io.InputStream originalIn = ServeCommand.testInStream;
         try {
             System.setOut(new PrintStream(out));
-            String input = "{\"jsonrpc\": \"2.0\", \"id\": 13, \"method\": \"tools/call\", \"params\": {\"name\": \"inspect_pg_schema\", \"arguments\": {\"url\": \"http://evil.com\"}}}\n";
-            ServeCommand.testInStream = new java.io.ByteArrayInputStream(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            String input =
+                    "{\"jsonrpc\": \"2.0\", \"id\": 13, \"method\": \"tools/call\", \"params\": {\"name\": \"inspect_pg_schema\", \"arguments\": {\"url\": \"http://evil.com\"}}}\n";
+            ServeCommand.testInStream =
+                    new java.io.ByteArrayInputStream(
+                            input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
             Integer exitCode = command.call();
             assertThat(exitCode).isZero();
@@ -379,7 +412,8 @@ class ServeCommandTest {
             Map<String, Object> result = asMap(response.get("result"));
             assertThat(result.get("isError")).isEqualTo(true);
             List<Map<String, Object>> content = asListOfMaps(result.get("content"));
-            assertThat(content.get(0).get("text").toString()).contains("must start with jdbc:postgresql://");
+            assertThat(content.get(0).get("text").toString())
+                    .contains("must start with jdbc:postgresql://");
         } finally {
             System.setOut(originalOut);
             ServeCommand.testInStream = originalIn;
@@ -397,8 +431,11 @@ class ServeCommandTest {
         java.io.InputStream originalIn = ServeCommand.testInStream;
         try {
             System.setOut(new PrintStream(out));
-            String input = "{\"jsonrpc\": \"2.0\", \"id\": 14, \"method\": \"tools/call\", \"params\": {\"name\": \"get_memory_summary\", \"arguments\": {\"pid\": \"not_a_number\"}}}\n";
-            ServeCommand.testInStream = new java.io.ByteArrayInputStream(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            String input =
+                    "{\"jsonrpc\": \"2.0\", \"id\": 14, \"method\": \"tools/call\", \"params\": {\"name\": \"get_memory_summary\", \"arguments\": {\"pid\": \"not_a_number\"}}}\n";
+            ServeCommand.testInStream =
+                    new java.io.ByteArrayInputStream(
+                            input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
             Integer exitCode = command.call();
             assertThat(exitCode).isZero();
@@ -427,7 +464,9 @@ class ServeCommandTest {
         try {
             System.setOut(new PrintStream(out));
             String input = "{not-valid-json\n";
-            ServeCommand.testInStream = new java.io.ByteArrayInputStream(input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            ServeCommand.testInStream =
+                    new java.io.ByteArrayInputStream(
+                            input.getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
             Integer exitCode = command.call();
             assertThat(exitCode).isZero();
@@ -446,7 +485,8 @@ class ServeCommandTest {
     @Test
     @DisplayName("shutdown hook detaches attached VirtualMachine")
     void shouldDetachOnShutdownHook() {
-        com.sun.tools.attach.VirtualMachine mockVm = org.mockito.Mockito.mock(com.sun.tools.attach.VirtualMachine.class);
+        com.sun.tools.attach.VirtualMachine mockVm =
+                org.mockito.Mockito.mock(com.sun.tools.attach.VirtualMachine.class);
         Runnable hook = ServeCommand.createShutdownHook(mockVm, 123, mockAttachService);
         hook.run();
         org.mockito.Mockito.verify(mockAttachService).detach(mockVm);
@@ -455,8 +495,11 @@ class ServeCommandTest {
     @Test
     @DisplayName("shutdown hook handles exception when detach fails")
     void shouldHandleExceptionDuringShutdownDetach() {
-        com.sun.tools.attach.VirtualMachine mockVm = org.mockito.Mockito.mock(com.sun.tools.attach.VirtualMachine.class);
-        org.mockito.Mockito.doThrow(new RuntimeException("Detach failed")).when(mockAttachService).detach(mockVm);
+        com.sun.tools.attach.VirtualMachine mockVm =
+                org.mockito.Mockito.mock(com.sun.tools.attach.VirtualMachine.class);
+        org.mockito.Mockito.doThrow(new RuntimeException("Detach failed"))
+                .when(mockAttachService)
+                .detach(mockVm);
         Runnable hook = ServeCommand.createShutdownHook(mockVm, 123, mockAttachService);
         hook.run(); // Should not throw
         org.mockito.Mockito.verify(mockAttachService).detach(mockVm);
@@ -479,5 +522,4 @@ class ServeCommandTest {
     private static List<Map<String, Object>> asListOfMaps(Object obj) {
         return obj instanceof List<?> list ? (List<Map<String, Object>>) list : null;
     }
-
 }

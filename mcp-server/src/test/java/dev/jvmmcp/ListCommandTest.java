@@ -1,9 +1,16 @@
 package dev.jvmmcp;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
+
 import dev.jvmmcp.core.attach.JvmAttachService;
 import dev.jvmmcp.core.model.Framework;
 import dev.jvmmcp.core.model.JvmProcess;
 import dev.jvmmcp.core.util.SimpleJson;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.util.Collections;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -11,19 +18,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import picocli.CommandLine;
 
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
-import java.util.Collections;
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.when;
-
 @ExtendWith(MockitoExtension.class)
 class ListCommandTest {
 
-    @Mock
-    private JvmAttachService mockAttachService;
+    @Mock private JvmAttachService mockAttachService;
 
     @Test
     @DisplayName("list command should execute successfully and discover JVM processes")
@@ -60,32 +58,18 @@ class ListCommandTest {
     void shouldFormatJvmListWithTruncation() {
         String exact28 = "1234567890123456789012345678";
 
-        List<JvmProcess> jvms = List.of(
-            new JvmProcess(
-                101L,
-                "LongApp",
-                "org.example.service.very.long.package.name.MainApplicationClass",
-                "21",
-                Framework.SPRING_BOOT,
-                true
-            ),
-            new JvmProcess(
-                102L,
-                "ShortApp",
-                "App",
-                "21",
-                Framework.QUARKUS,
-                true
-            ),
-            new JvmProcess(
-                103L,
-                "ExactApp",
-                exact28,
-                "21",
-                Framework.PLAIN_JAVA,
-                true
-            )
-        );
+        List<JvmProcess> jvms =
+                List.of(
+                        new JvmProcess(
+                                101L,
+                                "LongApp",
+                                "org.example.service.very.long.package.name.MainApplicationClass",
+                                "21",
+                                Framework.SPRING_BOOT,
+                                true),
+                        new JvmProcess(102L, "ShortApp", "App", "21", Framework.QUARKUS, true),
+                        new JvmProcess(
+                                103L, "ExactApp", exact28, "21", Framework.PLAIN_JAVA, true));
 
         when(mockAttachService.listJvms()).thenReturn(jvms);
 
@@ -104,11 +88,11 @@ class ListCommandTest {
             assertThat(output).contains("ATTACHABLE");
             assertThat(output).contains("-".repeat(100));
             assertThat(output)
-                .contains("101        Spring Boot      org.example.service.very....   LongApp");
+                    .contains("101        Spring Boot      org.example.service.very....   LongApp");
             assertThat(output)
-                .contains("102        Quarkus          App                            ShortApp");
-            assertThat(output)
-                .contains("103        Plain Java       " + exact28 + "   ExactApp");
+                    .contains(
+                            "102        Quarkus          App                            ShortApp");
+            assertThat(output).contains("103        Plain Java       " + exact28 + "   ExactApp");
         } finally {
             System.setOut(originalOut);
         }
@@ -117,24 +101,22 @@ class ListCommandTest {
     @Test
     @DisplayName("--attachable should show only attachable JVM processes")
     void shouldFilterAttachableJvms() {
-        List<JvmProcess> jvms = List.of(
-            new JvmProcess(
-                101L,
-                "AttachableApp",
-                "com.example.AttachableMain",
-                "21",
-                Framework.PLAIN_JAVA,
-                true
-            ),
-            new JvmProcess(
-                102L,
-                "NotAttachableApp",
-                "com.example.NotAttachableMain",
-                "21",
-                Framework.PLAIN_JAVA,
-                false
-            )
-        );
+        List<JvmProcess> jvms =
+                List.of(
+                        new JvmProcess(
+                                101L,
+                                "AttachableApp",
+                                "com.example.AttachableMain",
+                                "21",
+                                Framework.PLAIN_JAVA,
+                                true),
+                        new JvmProcess(
+                                102L,
+                                "NotAttachableApp",
+                                "com.example.NotAttachableMain",
+                                "21",
+                                Framework.PLAIN_JAVA,
+                                false));
 
         when(mockAttachService.listJvms()).thenReturn(jvms);
 
@@ -161,30 +143,26 @@ class ListCommandTest {
     @Test
     @DisplayName("list without --attachable should include all JVM processes")
     void shouldIncludeAllJvmsByDefault() {
-        List<JvmProcess> jvms = List.of(
-            new JvmProcess(
-                101L,
-                "AttachableApp",
-                "com.example.AttachableMain",
-                "21",
-                Framework.PLAIN_JAVA,
-                true
-            ),
-            new JvmProcess(
-                102L,
-                "NotAttachableApp",
-                "com.example.NotAttachableMain",
-                "21",
-                Framework.PLAIN_JAVA,
-                false
-            )
-        );
+        List<JvmProcess> jvms =
+                List.of(
+                        new JvmProcess(
+                                101L,
+                                "AttachableApp",
+                                "com.example.AttachableMain",
+                                "21",
+                                Framework.PLAIN_JAVA,
+                                true),
+                        new JvmProcess(
+                                102L,
+                                "NotAttachableApp",
+                                "com.example.NotAttachableMain",
+                                "21",
+                                Framework.PLAIN_JAVA,
+                                false));
 
         when(mockAttachService.listJvms()).thenReturn(jvms);
 
-        CommandLine cmd = new CommandLine(
-            new ListCommand(mockAttachService)
-        );
+        CommandLine cmd = new CommandLine(new ListCommand(mockAttachService));
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         PrintStream originalOut = System.out;
@@ -219,8 +197,7 @@ class ListCommandTest {
             Integer exitCode = command.call();
 
             assertThat(exitCode).isZero();
-            assertThat(out.toString())
-                .contains("No running JVM processes discovered.");
+            assertThat(out.toString()).contains("No running JVM processes discovered.");
         } finally {
             System.setOut(originalOut);
         }
@@ -233,12 +210,19 @@ class ListCommandTest {
 
         assertThat(command).isNotNull();
     }
+
     @Test
     @DisplayName("list command should output a JSON array with --json")
     void shouldOutputJsonList() {
-        List<JvmProcess> jvms = List.of(
-            new JvmProcess(101L, "JsonApp", "com.example.Main", "21", Framework.PLAIN_JAVA, true)
-        );
+        List<JvmProcess> jvms =
+                List.of(
+                        new JvmProcess(
+                                101L,
+                                "JsonApp",
+                                "com.example.Main",
+                                "21",
+                                Framework.PLAIN_JAVA,
+                                true));
         when(mockAttachService.listJvms()).thenReturn(jvms);
 
         ListCommand command = new ListCommand(mockAttachService);
@@ -250,7 +234,9 @@ class ListCommandTest {
             assertThat(command.call()).isZero();
             String output = out.toString().trim();
             assertThat(SimpleJson.parse(output)).isInstanceOf(List.class);
-            assertThat(output).contains("\"pid\":101").doesNotContain("FRAMEWORK", "MAIN CLASS", "----");
+            assertThat(output)
+                    .contains("\"pid\":101")
+                    .doesNotContain("FRAMEWORK", "MAIN CLASS", "----");
         } finally {
             System.setOut(originalOut);
         }

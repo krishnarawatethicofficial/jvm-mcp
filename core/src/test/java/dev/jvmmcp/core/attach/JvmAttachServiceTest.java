@@ -1,9 +1,19 @@
 package dev.jvmmcp.core.attach;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.sun.tools.attach.AttachNotSupportedException;
 import com.sun.tools.attach.VirtualMachine;
 import com.sun.tools.attach.VirtualMachineDescriptor;
 import dev.jvmmcp.core.model.JvmProcess;
+import java.io.IOException;
+import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -16,25 +26,13 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.io.IOException;
-import java.util.List;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 @ExtendWith(MockitoExtension.class)
 @DisplayName("JVM Attach Service")
 class JvmAttachServiceTest {
 
     private JvmAttachService attachService;
 
-    @Mock
-    private VirtualMachine mockVm;
+    @Mock private VirtualMachine mockVm;
 
     @BeforeEach
     void setUp() {
@@ -46,7 +44,8 @@ class JvmAttachServiceTest {
     class DiscoveringJvms {
 
         @Test
-        @DisplayName("listJvms should find active JVM processes including the current test runner process")
+        @DisplayName(
+                "listJvms should find active JVM processes including the current test runner process")
         void shouldListRunningJvmsIncludingSelf() {
             List<JvmProcess> jvms = attachService.listJvms();
 
@@ -57,17 +56,19 @@ class JvmAttachServiceTest {
             boolean foundSelf = jvms.stream().anyMatch(jvm -> jvm.pid() == currentPid);
 
             assertThat(foundSelf)
-                .as("listJvms() must discover the test runner JVM itself")
-                .isTrue();
+                    .as("listJvms() must discover the test runner JVM itself")
+                    .isTrue();
         }
 
         @Test
         @DisplayName("listJvms should safely ignore non-numeric PIDs without throwing exceptions")
         void shouldIgnoreNonNumericPids() {
-            com.sun.tools.attach.VirtualMachineDescriptor mockDesc = org.mockito.Mockito.mock(com.sun.tools.attach.VirtualMachineDescriptor.class);
+            com.sun.tools.attach.VirtualMachineDescriptor mockDesc =
+                    org.mockito.Mockito.mock(com.sun.tools.attach.VirtualMachineDescriptor.class);
             org.mockito.Mockito.when(mockDesc.id()).thenReturn("not-a-number");
 
-            try (org.mockito.MockedStatic<VirtualMachine> vmStatic = org.mockito.Mockito.mockStatic(VirtualMachine.class)) {
+            try (org.mockito.MockedStatic<VirtualMachine> vmStatic =
+                    org.mockito.Mockito.mockStatic(VirtualMachine.class)) {
                 vmStatic.when(VirtualMachine::list).thenReturn(java.util.List.of(mockDesc));
                 List<JvmProcess> jvms = attachService.listJvms();
                 assertThat(jvms).isEmpty();
@@ -94,22 +95,17 @@ class JvmAttachServiceTest {
             when(targetProcess.info()).thenReturn(targetInfo);
             when(targetInfo.user()).thenReturn(Optional.of("bob"));
 
-            JvmAttachService service = new JvmAttachService(
-                pid -> pid == targetPid
-                    ? Optional.of(targetProcess)
-                    : Optional.empty(),
-                () -> currentProcess
-            );
+            JvmAttachService service =
+                    new JvmAttachService(
+                            pid -> pid == targetPid ? Optional.of(targetProcess) : Optional.empty(),
+                            () -> currentProcess);
 
-            VirtualMachineDescriptor descriptor =
-                mock(VirtualMachineDescriptor.class);
+            VirtualMachineDescriptor descriptor = mock(VirtualMachineDescriptor.class);
             when(descriptor.id()).thenReturn(String.valueOf(targetPid));
             when(descriptor.displayName()).thenReturn("org.example.Application");
 
-            try (MockedStatic<VirtualMachine> vmStatic =
-                     mockStatic(VirtualMachine.class)) {
-                vmStatic.when(VirtualMachine::list)
-                    .thenReturn(List.of(descriptor));
+            try (MockedStatic<VirtualMachine> vmStatic = mockStatic(VirtualMachine.class)) {
+                vmStatic.when(VirtualMachine::list).thenReturn(List.of(descriptor));
 
                 List<JvmProcess> jvms = service.listJvms();
 
@@ -118,7 +114,6 @@ class JvmAttachServiceTest {
                 assertThat(jvms.get(0).isAttachable()).isFalse();
             }
         }
-
     }
 
     @Nested
@@ -126,9 +121,11 @@ class JvmAttachServiceTest {
     class AttachingToJvms {
 
         @Test
-        @DisplayName("should successfully return AttachResult containing a VirtualMachine on valid PID")
+        @DisplayName(
+                "should successfully return AttachResult containing a VirtualMachine on valid PID")
         void shouldAttachSuccessfully() {
-            try (org.mockito.MockedStatic<VirtualMachine> vmStatic = org.mockito.Mockito.mockStatic(VirtualMachine.class)) {
+            try (org.mockito.MockedStatic<VirtualMachine> vmStatic =
+                    org.mockito.Mockito.mockStatic(VirtualMachine.class)) {
                 vmStatic.when(() -> VirtualMachine.attach("888888")).thenReturn(mockVm);
                 AttachResult result = attachService.attach("888888");
                 assertThat(result.isSuccessful()).isTrue();
@@ -137,30 +134,38 @@ class JvmAttachServiceTest {
         }
 
         @Test
-        @DisplayName("should reject cross-user attachment when target process user differs from current user")
+        @DisplayName(
+                "should reject cross-user attachment when target process user differs from current user")
         void shouldRejectCrossUserAttachmentWhenTargetUserDiffers() {
             ProcessHandle targetProcess = mock(ProcessHandle.class);
             ProcessHandle.Info targetInfo = mock(ProcessHandle.Info.class);
             org.mockito.Mockito.when(targetProcess.isAlive()).thenReturn(true);
             org.mockito.Mockito.when(targetProcess.info()).thenReturn(targetInfo);
-            org.mockito.Mockito.when(targetInfo.user()).thenReturn(java.util.Optional.of("other-user"));
+            org.mockito.Mockito.when(targetInfo.user())
+                    .thenReturn(java.util.Optional.of("other-user"));
 
             ProcessHandle currentProcess = mock(ProcessHandle.class);
             ProcessHandle.Info currentInfo = mock(ProcessHandle.Info.class);
             org.mockito.Mockito.when(currentProcess.pid()).thenReturn(1000L);
             org.mockito.Mockito.when(currentProcess.info()).thenReturn(currentInfo);
-            org.mockito.Mockito.when(currentInfo.user()).thenReturn(java.util.Optional.of("current-user"));
+            org.mockito.Mockito.when(currentInfo.user())
+                    .thenReturn(java.util.Optional.of("current-user"));
 
-            JvmAttachService service = new JvmAttachService(
-                pid -> pid == 99999L ? java.util.Optional.of(targetProcess) : java.util.Optional.empty(),
-                () -> currentProcess
-            );
+            JvmAttachService service =
+                    new JvmAttachService(
+                            pid ->
+                                    pid == 99999L
+                                            ? java.util.Optional.of(targetProcess)
+                                            : java.util.Optional.empty(),
+                            () -> currentProcess);
 
             AttachResult result = service.attach("99999");
 
             assertThat(result.isSuccessful()).isFalse();
             assertThat(result.status()).isEqualTo(AttachStatus.PERMISSION_DENIED);
-            assertThat(result.message()).contains("Target JVM process is owned by a different user (other-user). Cross-user attachment is prohibited.");
+            assertThat(result.message())
+                    .contains(
+                            "Target JVM process is owned by a different user (other-user). Cross-user attachment is prohibited.");
         }
 
         @Test
@@ -172,10 +177,13 @@ class JvmAttachServiceTest {
             ProcessHandle currentProcess = mock(ProcessHandle.class);
             org.mockito.Mockito.when(currentProcess.pid()).thenReturn(1000L);
 
-            JvmAttachService service = new JvmAttachService(
-                pid -> pid == 99999L ? java.util.Optional.of(deadProcess) : java.util.Optional.empty(),
-                () -> currentProcess
-            );
+            JvmAttachService service =
+                    new JvmAttachService(
+                            pid ->
+                                    pid == 99999L
+                                            ? java.util.Optional.of(deadProcess)
+                                            : java.util.Optional.empty(),
+                            () -> currentProcess);
 
             AttachResult result = service.attach("99999");
 
@@ -199,7 +207,15 @@ class JvmAttachServiceTest {
         }
 
         @ParameterizedTest
-        @ValueSource(strings = {"Windows 10", "Windows 11", "Windows Server 2022", "Linux", "Mac OS X", "Darwin"})
+        @ValueSource(
+                strings = {
+                    "Windows 10",
+                    "Windows 11",
+                    "Windows Server 2022",
+                    "Linux",
+                    "Mac OS X",
+                    "Darwin"
+                })
         @ResourceLock("java.lang.System.properties")
         @DisplayName("should ignore account name casing only on Windows")
         void shouldCompareUsersAccordingToPlatform(String osName) {
@@ -212,7 +228,7 @@ class JvmAttachServiceTest {
                 var differentDomain = java.util.Optional.of("OTHER\\Alice");
 
                 assertThat(JvmAttachService.isCrossUser(current, sameAccount))
-                    .isEqualTo(!osName.startsWith("Windows"));
+                        .isEqualTo(!osName.startsWith("Windows"));
                 assertThat(JvmAttachService.isCrossUser(current, differentUser)).isTrue();
                 assertThat(JvmAttachService.isCrossUser(current, differentDomain)).isTrue();
             } finally {
@@ -225,14 +241,16 @@ class JvmAttachServiceTest {
         }
 
         @Test
-        @DisplayName("should handle non-existent PIDs gracefully and return PROCESS_NOT_FOUND or GENERIC_ERROR status")
+        @DisplayName(
+                "should handle non-existent PIDs gracefully and return PROCESS_NOT_FOUND or GENERIC_ERROR status")
         void shouldHandleNonExistentPidGracefully() {
             String nonExistentPid = "999999999";
             AttachResult result = attachService.attach(nonExistentPid);
 
             assertThat(result).isNotNull();
             assertThat(result.isSuccessful()).isFalse();
-            assertThat(result.status()).isIn(AttachStatus.PROCESS_NOT_FOUND, AttachStatus.GENERIC_ERROR);
+            assertThat(result.status())
+                    .isIn(AttachStatus.PROCESS_NOT_FOUND, AttachStatus.GENERIC_ERROR);
         }
 
         @Test
@@ -287,21 +305,32 @@ class JvmAttachServiceTest {
     class ExceptionMapping {
 
         @Test
-        @DisplayName("categorizes AttachNotSupportedException and IOException into domain-specific AttachStatus")
+        @DisplayName(
+                "categorizes AttachNotSupportedException and IOException into domain-specific AttachStatus")
         void shouldMapAllAttachExceptions() {
-            AttachResult nsResult = attachService.mapAttachException("100", new AttachNotSupportedException("Different container namespace"));
+            AttachResult nsResult =
+                    attachService.mapAttachException(
+                            "100",
+                            new AttachNotSupportedException("Different container namespace"));
             assertThat(nsResult.status()).isEqualTo(AttachStatus.UNSUPPORTED_NAMESPACE);
 
-            AttachResult genAttachResult = attachService.mapAttachException("101", new AttachNotSupportedException("Target JVM refuses connection"));
+            AttachResult genAttachResult =
+                    attachService.mapAttachException(
+                            "101",
+                            new AttachNotSupportedException("Target JVM refuses connection"));
             assertThat(genAttachResult.status()).isEqualTo(AttachStatus.GENERIC_ERROR);
 
-            AttachResult permResult = attachService.mapAttachException("102", new IOException("Permission denied"));
+            AttachResult permResult =
+                    attachService.mapAttachException("102", new IOException("Permission denied"));
             assertThat(permResult.status()).isEqualTo(AttachStatus.PERMISSION_DENIED);
 
-            AttachResult notFoundResult = attachService.mapAttachException("103", new IOException("No such process"));
+            AttachResult notFoundResult =
+                    attachService.mapAttachException("103", new IOException("No such process"));
             assertThat(notFoundResult.status()).isEqualTo(AttachStatus.PROCESS_NOT_FOUND);
 
-            AttachResult unexpectedResult = attachService.mapAttachException("105", new RuntimeException("Unexpected panic"));
+            AttachResult unexpectedResult =
+                    attachService.mapAttachException(
+                            "105", new RuntimeException("Unexpected panic"));
             assertThat(unexpectedResult.status()).isEqualTo(AttachStatus.GENERIC_ERROR);
         }
     }
@@ -323,19 +352,31 @@ class JvmAttachServiceTest {
         }
 
         @Test
-        @DisplayName("extractMainClass strips jar paths and identifies true main classes accurately")
+        @DisplayName(
+                "extractMainClass strips jar paths and identifies true main classes accurately")
         void shouldExtractMainClassAccurately() {
-            assertThat(attachService.extractMainClass("-jar target/demo.jar")).isEqualTo("demo.jar");
-            assertThat(attachService.extractMainClass("-jar C:\\apps\\demo.jar")).isEqualTo("demo.jar");
-            assertThat(attachService.extractMainClass("org.example.Application --spring.profiles.active=dev")).isEqualTo("org.example.Application");
+            assertThat(attachService.extractMainClass("-jar target/demo.jar"))
+                    .isEqualTo("demo.jar");
+            assertThat(attachService.extractMainClass("-jar C:\\apps\\demo.jar"))
+                    .isEqualTo("demo.jar");
+            assertThat(
+                            attachService.extractMainClass(
+                                    "org.example.Application --spring.profiles.active=dev"))
+                    .isEqualTo("org.example.Application");
         }
 
         @Test
-        @DisplayName("extractMainClass reports the module/Main descriptor of a modular launch, not the flag")
+        @DisplayName(
+                "extractMainClass reports the module/Main descriptor of a modular launch, not the flag")
         void shouldExtractMainClassOfModularLaunch() {
-            assertThat(attachService.extractMainClass("-m my.module/com.foo.Main")).isEqualTo("my.module/com.foo.Main");
-            assertThat(attachService.extractMainClass("--module my.module/com.foo.Main --port 8080")).isEqualTo("my.module/com.foo.Main");
-            assertThat(attachService.extractMainClass("--module=my.module/com.foo.Main")).isEqualTo("my.module/com.foo.Main");
+            assertThat(attachService.extractMainClass("-m my.module/com.foo.Main"))
+                    .isEqualTo("my.module/com.foo.Main");
+            assertThat(
+                            attachService.extractMainClass(
+                                    "--module my.module/com.foo.Main --port 8080"))
+                    .isEqualTo("my.module/com.foo.Main");
+            assertThat(attachService.extractMainClass("--module=my.module/com.foo.Main"))
+                    .isEqualTo("my.module/com.foo.Main");
             assertThat(attachService.extractMainClass("-m my.module")).isEqualTo("my.module");
         }
     }
@@ -345,7 +386,8 @@ class JvmAttachServiceTest {
     class AttachingToSelf {
 
         @Test
-        @DisplayName("attach should succeed via local self-inspection without invoking the Attach API")
+        @DisplayName(
+                "attach should succeed via local self-inspection without invoking the Attach API")
         void shouldReturnSelfAttachResultForCurrentPid() {
             String currentPid = String.valueOf(ProcessHandle.current().pid());
 

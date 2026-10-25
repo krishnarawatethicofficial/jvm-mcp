@@ -1,21 +1,12 @@
 package dev.jvmmcp.core.spring;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
+
 import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpsConfigurator;
 import com.sun.net.httpserver.HttpsServer;
 import com.sun.tools.attach.VirtualMachine;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
-import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLEngine;
-import javax.net.ssl.X509ExtendedTrustManager;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Constructor;
@@ -29,22 +20,30 @@ import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.Properties;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.when;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLEngine;
+import javax.net.ssl.X509ExtendedTrustManager;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class ActuatorProbeTest {
 
-    private static final String BEANS_PAYLOAD = "{\"contexts\":{\"application\":{\"beans\":{\"userService\":{}}}}}";
+    private static final String BEANS_PAYLOAD =
+            "{\"contexts\":{\"application\":{\"beans\":{\"userService\":{}}}}}";
     private static final String NON_BEANS_PAYLOAD = "<html><body>Welcome</body></html>";
 
     private HttpServer server;
     private HttpsServer httpsServer;
     private int port;
 
-    @Mock
-    private VirtualMachine virtualMachine;
+    @Mock private VirtualMachine virtualMachine;
 
     @BeforeEach
     void startServer() throws IOException {
@@ -63,29 +62,34 @@ class ActuatorProbeTest {
     }
 
     /**
-     * Starts a local HTTPS server (self-signed test keystore) that serves the beans payload
-     * on /actuator/beans, and returns its port.
+     * Starts a local HTTPS server (self-signed test keystore) that serves the beans payload on
+     * /actuator/beans, and returns its port.
      */
     private int startHttpsBeansServer() throws Exception {
         KeyStore ks = KeyStore.getInstance("PKCS12");
-        try (InputStream in = ActuatorProbeTest.class.getResourceAsStream("/actuator-test-keystore.p12")) {
+        try (InputStream in =
+                ActuatorProbeTest.class.getResourceAsStream("/actuator-test-keystore.p12")) {
             assertThat(in).as("test keystore resource").isNotNull();
             ks.load(in, "changeit".toCharArray());
         }
-        KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+        KeyManagerFactory kmf =
+                KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
         kmf.init(ks, "changeit".toCharArray());
         SSLContext ctx = SSLContext.getInstance("TLS");
         ctx.init(kmf.getKeyManagers(), null, null);
 
-        httpsServer = HttpsServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        httpsServer =
+                HttpsServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
         httpsServer.setHttpsConfigurator(new HttpsConfigurator(ctx));
-        httpsServer.createContext("/actuator/beans", exchange -> {
-            byte[] body = BEANS_PAYLOAD.getBytes(StandardCharsets.UTF_8);
-            exchange.sendResponseHeaders(200, body.length);
-            try (java.io.OutputStream os = exchange.getResponseBody()) {
-                os.write(body);
-            }
-        });
+        httpsServer.createContext(
+                "/actuator/beans",
+                exchange -> {
+                    byte[] body = BEANS_PAYLOAD.getBytes(StandardCharsets.UTF_8);
+                    exchange.sendResponseHeaders(200, body.length);
+                    try (java.io.OutputStream os = exchange.getResponseBody()) {
+                        os.write(body);
+                    }
+                });
         httpsServer.start();
         return httpsServer.getAddress().getPort();
     }
@@ -100,13 +104,15 @@ class ActuatorProbeTest {
     @Test
     @DisplayName("probe extracts candidate ports from VM properties and succeeds on active port")
     void shouldProbeActivePortFromVmProperties() throws Exception {
-        server.createContext("/actuator/beans", exchange -> {
-            byte[] body = BEANS_PAYLOAD.getBytes(StandardCharsets.UTF_8);
-            exchange.sendResponseHeaders(200, body.length);
-            try (java.io.OutputStream os = exchange.getResponseBody()) {
-                os.write(body);
-            }
-        });
+        server.createContext(
+                "/actuator/beans",
+                exchange -> {
+                    byte[] body = BEANS_PAYLOAD.getBytes(StandardCharsets.UTF_8);
+                    exchange.sendResponseHeaders(200, body.length);
+                    try (java.io.OutputStream os = exchange.getResponseBody()) {
+                        os.write(body);
+                    }
+                });
         server.start();
 
         Properties sysProps = new Properties();
@@ -134,17 +140,21 @@ class ActuatorProbeTest {
     @Test
     @DisplayName("probe finds a port given only as a --server.port argument in sun.java.command")
     void shouldProbePortFromCommandLineArgument() throws Exception {
-        server.createContext("/actuator/beans", exchange -> {
-            byte[] body = BEANS_PAYLOAD.getBytes(StandardCharsets.UTF_8);
-            exchange.sendResponseHeaders(200, body.length);
-            try (java.io.OutputStream os = exchange.getResponseBody()) {
-                os.write(body);
-            }
-        });
+        server.createContext(
+                "/actuator/beans",
+                exchange -> {
+                    byte[] body = BEANS_PAYLOAD.getBytes(StandardCharsets.UTF_8);
+                    exchange.sendResponseHeaders(200, body.length);
+                    try (java.io.OutputStream os = exchange.getResponseBody()) {
+                        os.write(body);
+                    }
+                });
         server.start();
 
         Properties sysProps = new Properties();
-        sysProps.setProperty("sun.java.command", "my-service.jar --spring.profiles.active=prod --server.port=" + port);
+        sysProps.setProperty(
+                "sun.java.command",
+                "my-service.jar --spring.profiles.active=prod --server.port=" + port);
         when(virtualMachine.getSystemProperties()).thenReturn(sysProps);
         when(virtualMachine.getAgentProperties()).thenReturn(new Properties());
 
@@ -157,18 +167,26 @@ class ActuatorProbeTest {
     @Test
     @DisplayName("portsFromCommandLine reads --/-D server and management ports, management first")
     void shouldReadPortsFromCommandLine() {
-        assertThat(ActuatorProbe.portsFromCommandLine("my-service.jar --server.port=8085")).containsExactly("8085");
-        assertThat(ActuatorProbe.portsFromCommandLine("my-service.jar --server.port=8085 --management.server.port=9095"))
-            .containsExactly("9095", "8085");
-        assertThat(ActuatorProbe.portsFromCommandLine("com.example.App -Dserver.port=7070")).containsExactly("7070");
-        assertThat(ActuatorProbe.portsFromCommandLine("app.jar --my.server.port=1 --server.portal=2 --server.port")).isEmpty();
+        assertThat(ActuatorProbe.portsFromCommandLine("my-service.jar --server.port=8085"))
+                .containsExactly("8085");
+        assertThat(
+                        ActuatorProbe.portsFromCommandLine(
+                                "my-service.jar --server.port=8085 --management.server.port=9095"))
+                .containsExactly("9095", "8085");
+        assertThat(ActuatorProbe.portsFromCommandLine("com.example.App -Dserver.port=7070"))
+                .containsExactly("7070");
+        assertThat(
+                        ActuatorProbe.portsFromCommandLine(
+                                "app.jar --my.server.port=1 --server.portal=2 --server.port"))
+                .isEmpty();
         assertThat(ActuatorProbe.portsFromCommandLine(null)).isEmpty();
     }
 
     @Test
     @DisplayName("probe handles getSystemProperties throwing exception gracefully")
     void shouldHandleVmPropertiesException() throws Exception {
-        when(virtualMachine.getSystemProperties()).thenThrow(new IOException("Attach read failure"));
+        when(virtualMachine.getSystemProperties())
+                .thenThrow(new IOException("Attach read failure"));
 
         ActuatorProbe probe = new ActuatorProbe();
         Optional<ActuatorProbe.ProbeResult> result = probe.probe(virtualMachine);
@@ -179,12 +197,14 @@ class ActuatorProbeTest {
     @Test
     @DisplayName("probe returns empty when target endpoints do not contain beans")
     void shouldReturnEmptyWhenNoBeansPayloadFound() throws Exception {
-        server.createContext("/actuator/beans", exchange -> {
-            byte[] body = NON_BEANS_PAYLOAD.getBytes(StandardCharsets.UTF_8);
-            exchange.sendResponseHeaders(200, body.length);
-            exchange.getResponseBody().write(body);
-            exchange.close();
-        });
+        server.createContext(
+                "/actuator/beans",
+                exchange -> {
+                    byte[] body = NON_BEANS_PAYLOAD.getBytes(StandardCharsets.UTF_8);
+                    exchange.sendResponseHeaders(200, body.length);
+                    exchange.getResponseBody().write(body);
+                    exchange.close();
+                });
         server.start();
 
         Properties sysProps = new Properties();
@@ -201,16 +221,20 @@ class ActuatorProbeTest {
     @Test
     @DisplayName("probePort falls back to /beans when /actuator/beans returns 404")
     void shouldFallbackToCustomBeansPath() {
-        server.createContext("/actuator/beans", exchange -> {
-            exchange.sendResponseHeaders(404, 0);
-            exchange.close();
-        });
-        server.createContext("/beans", exchange -> {
-            byte[] body = BEANS_PAYLOAD.getBytes(StandardCharsets.UTF_8);
-            exchange.sendResponseHeaders(200, body.length);
-            exchange.getResponseBody().write(body);
-            exchange.close();
-        });
+        server.createContext(
+                "/actuator/beans",
+                exchange -> {
+                    exchange.sendResponseHeaders(404, 0);
+                    exchange.close();
+                });
+        server.createContext(
+                "/beans",
+                exchange -> {
+                    byte[] body = BEANS_PAYLOAD.getBytes(StandardCharsets.UTF_8);
+                    exchange.sendResponseHeaders(200, body.length);
+                    exchange.getResponseBody().write(body);
+                    exchange.close();
+                });
         server.start();
 
         ActuatorProbe probe = new ActuatorProbe();
@@ -235,7 +259,8 @@ class ActuatorProbeTest {
         ActuatorProbe probe = new ActuatorProbe(auth);
         assertThat(probe).isNotNull();
 
-        Class<?> trustAllClass = Class.forName("dev.jvmmcp.core.spring.ActuatorProbe$TrustAllManager");
+        Class<?> trustAllClass =
+                Class.forName("dev.jvmmcp.core.spring.ActuatorProbe$TrustAllManager");
         Constructor<?> ctor = trustAllClass.getDeclaredConstructor();
         ctor.setAccessible(true);
         X509ExtendedTrustManager manager = (X509ExtendedTrustManager) ctor.newInstance();
@@ -297,12 +322,14 @@ class ActuatorProbeTest {
     @Test
     @DisplayName("probe returns empty on 200 but body does not contain beans")
     void shouldReturnEmptyOn200WithoutBeans() throws Exception {
-        server.createContext("/actuator/beans", exchange -> {
-            byte[] body = NON_BEANS_PAYLOAD.getBytes(StandardCharsets.UTF_8);
-            exchange.sendResponseHeaders(200, body.length);
-            exchange.getResponseBody().write(body);
-            exchange.close();
-        });
+        server.createContext(
+                "/actuator/beans",
+                exchange -> {
+                    byte[] body = NON_BEANS_PAYLOAD.getBytes(StandardCharsets.UTF_8);
+                    exchange.sendResponseHeaders(200, body.length);
+                    exchange.getResponseBody().write(body);
+                    exchange.close();
+                });
 
         Properties agentProps = new Properties();
         agentProps.setProperty("server.port", String.valueOf(port));
@@ -317,10 +344,12 @@ class ActuatorProbeTest {
     @Test
     @DisplayName("probe returns empty on 200 but null body")
     void shouldReturnEmptyOn200NullBody() throws Exception {
-        server.createContext("/actuator/beans", exchange -> {
-            exchange.sendResponseHeaders(200, -1);
-            exchange.close();
-        });
+        server.createContext(
+                "/actuator/beans",
+                exchange -> {
+                    exchange.sendResponseHeaders(200, -1);
+                    exchange.close();
+                });
 
         Properties agentProps = new Properties();
         agentProps.setProperty("server.port", String.valueOf(port));
@@ -335,13 +364,17 @@ class ActuatorProbeTest {
     @Test
     @DisplayName("probe throws on GeneralSecurityException")
     void shouldThrowOnGeneralSecurityException() {
-        try (org.mockito.MockedStatic<javax.net.ssl.SSLContext> sslStatic = org.mockito.Mockito.mockStatic(javax.net.ssl.SSLContext.class, org.mockito.Mockito.CALLS_REAL_METHODS)) {
-            sslStatic.when(() -> javax.net.ssl.SSLContext.getInstance("TLSv1.2"))
-                     .thenThrow(new java.security.NoSuchAlgorithmException("Simulated"));
-            
-            org.assertj.core.api.Assertions.assertThatThrownBy(() -> new ActuatorProbe(ActuatorAuth.basic("a", "b", true)))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Unable to initialise insecure TLS context");
+        try (org.mockito.MockedStatic<javax.net.ssl.SSLContext> sslStatic =
+                org.mockito.Mockito.mockStatic(
+                        javax.net.ssl.SSLContext.class, org.mockito.Mockito.CALLS_REAL_METHODS)) {
+            sslStatic
+                    .when(() -> javax.net.ssl.SSLContext.getInstance("TLSv1.2"))
+                    .thenThrow(new java.security.NoSuchAlgorithmException("Simulated"));
+
+            org.assertj.core.api.Assertions.assertThatThrownBy(
+                            () -> new ActuatorProbe(ActuatorAuth.basic("a", "b", true)))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("Unable to initialise insecure TLS context");
         }
     }
 
@@ -362,7 +395,8 @@ class ActuatorProbeTest {
     }
 
     @Test
-    @DisplayName("probe reports an https:// URL when TLS is hinted via management.server.ssl.enabled")
+    @DisplayName(
+            "probe reports an https:// URL when TLS is hinted via management.server.ssl.enabled")
     void shouldReportHttpsUrlFromSslHint() throws Exception {
         int httpsPort = startHttpsBeansServer();
 
@@ -376,7 +410,8 @@ class ActuatorProbeTest {
         Optional<ActuatorProbe.ProbeResult> result = probe.probe(virtualMachine);
 
         assertThat(result).isPresent();
-        assertThat(result.get().url()).isEqualTo("https://127.0.0.1:" + httpsPort + "/actuator/beans");
+        assertThat(result.get().url())
+                .isEqualTo("https://127.0.0.1:" + httpsPort + "/actuator/beans");
         assertThat(result.get().rawJson()).isEqualTo(BEANS_PAYLOAD);
     }
 

@@ -1,12 +1,7 @@
 package dev.jvmmcp.core.util;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.MethodSource;
-import org.junit.jupiter.params.provider.ValueSource;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,9 +11,13 @@ import java.util.OptionalDouble;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.stream.Stream;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class SimpleJsonTest {
 
@@ -31,61 +30,77 @@ class SimpleJsonTest {
 
     static Stream<Arguments> optionalValues() {
         return Stream.of(
-            Arguments.of(Optional.empty(), "null"),
-            Arguments.of(Optional.of("a\"b\nc"), "\"a\\\"b\\nc\""),
-            Arguments.of(Optional.of(false), "false"),
-            Arguments.of(Optional.of(0), "0"),
-            Arguments.of(Optional.of(Optional.of("nested")), "\"nested\""),
-            Arguments.of(Optional.of(Optional.empty()), "null"),
-            Arguments.of(OptionalInt.empty(), "null"),
-            Arguments.of(OptionalInt.of(0), "0"),
-            Arguments.of(OptionalInt.of(Integer.MIN_VALUE), "-2147483648"),
-            Arguments.of(OptionalLong.empty(), "null"),
-            Arguments.of(OptionalLong.of(0), "0"),
-            Arguments.of(OptionalLong.of(Long.MAX_VALUE), "9223372036854775807"),
-            Arguments.of(OptionalDouble.empty(), "null"),
-            Arguments.of(OptionalDouble.of(0.0), "0.0"),
-            Arguments.of(OptionalDouble.of(-0.0), "-0.0"),
-            Arguments.of(OptionalDouble.of(1.25), "1.25"),
-            Arguments.of(OptionalDouble.of(Double.NaN), "null"),
-            Arguments.of(OptionalDouble.of(Double.POSITIVE_INFINITY), "null"),
-            Arguments.of(OptionalDouble.of(Double.NEGATIVE_INFINITY), "null")
-        );
+                Arguments.of(Optional.empty(), "null"),
+                Arguments.of(Optional.of("a\"b\nc"), "\"a\\\"b\\nc\""),
+                Arguments.of(Optional.of(false), "false"),
+                Arguments.of(Optional.of(0), "0"),
+                Arguments.of(Optional.of(Optional.of("nested")), "\"nested\""),
+                Arguments.of(Optional.of(Optional.empty()), "null"),
+                Arguments.of(OptionalInt.empty(), "null"),
+                Arguments.of(OptionalInt.of(0), "0"),
+                Arguments.of(OptionalInt.of(Integer.MIN_VALUE), "-2147483648"),
+                Arguments.of(OptionalLong.empty(), "null"),
+                Arguments.of(OptionalLong.of(0), "0"),
+                Arguments.of(OptionalLong.of(Long.MAX_VALUE), "9223372036854775807"),
+                Arguments.of(OptionalDouble.empty(), "null"),
+                Arguments.of(OptionalDouble.of(0.0), "0.0"),
+                Arguments.of(OptionalDouble.of(-0.0), "-0.0"),
+                Arguments.of(OptionalDouble.of(1.25), "1.25"),
+                Arguments.of(OptionalDouble.of(Double.NaN), "null"),
+                Arguments.of(OptionalDouble.of(Double.POSITIVE_INFINITY), "null"),
+                Arguments.of(OptionalDouble.of(Double.NEGATIVE_INFINITY), "null"));
     }
 
-    public record OptionalRecord(Optional<String> name, OptionalInt count,
-                                 OptionalLong total, OptionalDouble ratio) {}
+    public record OptionalRecord(
+            Optional<String> name, OptionalInt count, OptionalLong total, OptionalDouble ratio) {}
 
     @Test
     @DisplayName("toJson should unwrap optional record fields")
     void shouldSerializePresentOptionalRecordFields() {
-        OptionalRecord record = new OptionalRecord(Optional.of("metrics"), OptionalInt.of(42),
-            OptionalLong.of(5000000000L), OptionalDouble.of(1.25));
+        OptionalRecord record =
+                new OptionalRecord(
+                        Optional.of("metrics"),
+                        OptionalInt.of(42),
+                        OptionalLong.of(5000000000L),
+                        OptionalDouble.of(1.25));
 
-        assertThat(SimpleJson.toJson(record)).isEqualTo(
-            "{\"name\":\"metrics\",\"count\":42,\"total\":5000000000,\"ratio\":1.25}");
+        assertThat(SimpleJson.toJson(record))
+                .isEqualTo(
+                        "{\"name\":\"metrics\",\"count\":42,\"total\":5000000000,\"ratio\":1.25}");
     }
 
     @Test
     @DisplayName("toJson should serialize empty optional record fields as null")
     void shouldSerializeEmptyOptionalRecordFields() {
-        OptionalRecord record = new OptionalRecord(Optional.empty(), OptionalInt.empty(),
-            OptionalLong.empty(), OptionalDouble.empty());
+        OptionalRecord record =
+                new OptionalRecord(
+                        Optional.empty(),
+                        OptionalInt.empty(),
+                        OptionalLong.empty(),
+                        OptionalDouble.empty());
 
-        assertThat(SimpleJson.toJson(record)).isEqualTo(
-            "{\"name\":null,\"count\":null,\"total\":null,\"ratio\":null}");
+        assertThat(SimpleJson.toJson(record))
+                .isEqualTo("{\"name\":null,\"count\":null,\"total\":null,\"ratio\":null}");
     }
 
     @Test
     @DisplayName("toJson should unwrap optionals nested in maps, lists, and arrays")
     void shouldSerializeOptionalsInContainers() {
-        Object value = Map.of("items", Optional.of(List.of(
-            Optional.of(Map.of("enabled", Optional.of(false))),
-            new Object[] {Optional.empty(), OptionalInt.of(7), OptionalLong.of(8), OptionalDouble.of(1.25)}
-        )));
+        Object value =
+                Map.of(
+                        "items",
+                        Optional.of(
+                                List.of(
+                                        Optional.of(Map.of("enabled", Optional.of(false))),
+                                        new Object[] {
+                                            Optional.empty(),
+                                            OptionalInt.of(7),
+                                            OptionalLong.of(8),
+                                            OptionalDouble.of(1.25)
+                                        })));
 
-        assertThat(SimpleJson.toJson(value)).isEqualTo(
-            "{\"items\":[{\"enabled\":false},[null,7,8,1.25]]}");
+        assertThat(SimpleJson.toJson(value))
+                .isEqualTo("{\"items\":[{\"enabled\":false},[null,7,8,1.25]]}");
     }
 
     @Test
@@ -96,7 +111,8 @@ class SimpleJsonTest {
             value = Optional.of(List.of(value));
         }
 
-        assertThat(SimpleJson.toJson(value)).isEqualTo("[".repeat(100) + "\"leaf\"" + "]".repeat(100));
+        assertThat(SimpleJson.toJson(value))
+                .isEqualTo("[".repeat(100) + "\"leaf\"" + "]".repeat(100));
     }
 
     @Test
@@ -106,8 +122,8 @@ class SimpleJsonTest {
         value.add(Optional.of(value));
 
         assertThatThrownBy(() -> SimpleJson.toJson(value))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("depth");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("depth");
     }
 
     @Test
@@ -121,14 +137,15 @@ class SimpleJsonTest {
             current = next;
         }
         assertThatThrownBy(() -> SimpleJson.toJson(root))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("depth");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("depth");
     }
 
     @Test
     @DisplayName("parseObject should parse complex nested JSON with strings, arrays, and numbers")
     void shouldParseNestedJsonObject() {
-        String json = """
+        String json =
+                """
             {
                 "serviceName": "order-service",
                 "port": 8080,
@@ -201,21 +218,22 @@ class SimpleJsonTest {
     void shouldParseVariousNumberFormats() {
         assertThat(SimpleJson.parse("5000000000")).isEqualTo(5000000000L);
         assertThat(SimpleJson.parse("-0.5e-2")).isEqualTo(-0.005);
-        assertThat(SimpleJson.parse("10000000000000000000000000000000000000")).isInstanceOf(Double.class);
+        assertThat(SimpleJson.parse("10000000000000000000000000000000000000"))
+                .isInstanceOf(Double.class);
     }
 
     @Test
     @DisplayName("parseObject throws IllegalArgumentException for non-object root")
     void shouldThrowWhenNotAnObject() {
         assertThatThrownBy(() -> SimpleJson.parseObject("[1, 2, 3]"))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Expected JSON Object");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Expected JSON Object");
 
         assertThatThrownBy(() -> SimpleJson.parseObject("\"just a string\""))
-            .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class);
 
         assertThatThrownBy(() -> SimpleJson.parseObject(null))
-            .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -223,35 +241,37 @@ class SimpleJsonTest {
     void shouldThrowForMalformedJson() {
         // Unexpected starting character
         assertThatThrownBy(() -> SimpleJson.parse("@invalid"))
-            .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class);
 
         // Unterminated string
         assertThatThrownBy(() -> SimpleJson.parse("{\"key\": \"unterminated"))
-            .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class);
 
         // Missing colon in object
         assertThatThrownBy(() -> SimpleJson.parse("{\"key\" \"val\"}"))
-            .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class);
 
         // Missing comma in object
         assertThatThrownBy(() -> SimpleJson.parse("{\"a\": 1 \"b\": 2}"))
-            .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class);
 
         // Missing comma in array
         assertThatThrownBy(() -> SimpleJson.parse("[1 2 3]"))
-            .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class);
 
         // Invalid boolean and null tokens
         assertThatThrownBy(() -> SimpleJson.parse("truth"))
-            .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> SimpleJson.parse("nil"))
-            .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
-    @DisplayName("parse and toJson should round-trip successfully for strings with escape sequences and unicode")
+    @DisplayName(
+            "parse and toJson should round-trip successfully for strings with escape sequences and unicode")
     void shouldRoundTripStrings() {
-        String original = "Here is a string with \n newline, \t tab, \u001b escape, \" quotes \", and unicode \u2603 \uD83D\uDCA9.";
+        String original =
+                "Here is a string with \n newline, \t tab, \u001b escape, \" quotes \", and unicode \u2603 \uD83D\uDCA9.";
         String json = SimpleJson.toJson(original);
         Object parsed = SimpleJson.parse(json);
         assertThat(parsed).isEqualTo(original);
@@ -261,42 +281,47 @@ class SimpleJsonTest {
     @DisplayName("parse should strictly reject non-standard single-quoted strings")
     void shouldRejectSingleQuotedStrings() {
         assertThatThrownBy(() -> SimpleJson.parse("'single'"))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Unexpected character");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Unexpected character");
 
         assertThatThrownBy(() -> SimpleJson.parse("{\"key\": 'value'}"))
-            .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     @DisplayName("parse should strictly reject trailing content after a valid JSON value")
     void shouldRejectTrailingContentAfterJsonValue() {
         assertThatThrownBy(() -> SimpleJson.parse("{\"jsonrpc\":\"2.0\"} basura"))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Trailing content");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Trailing content");
 
         assertThatThrownBy(() -> SimpleJson.parse("true anything"))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Trailing content");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Trailing content");
 
         assertThatThrownBy(() -> SimpleJson.parse("[1, 2, 3] trailing"))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Trailing content");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Trailing content");
 
         assertThatThrownBy(() -> SimpleJson.parse("\"valid string\" extra"))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Trailing content");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Trailing content");
     }
 
     @ParameterizedTest(name = "Reject malformed number ''{0}''")
-    @ValueSource(strings = {"-", "{\"val\":-}", "[-,1]", "1.", "[1.]", "1e", "1e+", "-1.5e-", "-.5"})
-    @DisplayName("parse should reject malformed numbers as JSON errors instead of leaking NumberFormatException")
+    @ValueSource(
+            strings = {"-", "{\"val\":-}", "[-,1]", "1.", "[1.]", "1e", "1e+", "-1.5e-", "-.5"})
+    @DisplayName(
+            "parse should reject malformed numbers as JSON errors instead of leaking NumberFormatException")
     void shouldRejectMalformedNumbers(String json) {
         assertThatThrownBy(() -> SimpleJson.parse(json))
-            .as("parsing %s", json)
-            .isExactlyInstanceOf(IllegalArgumentException.class) // NumberFormatException is a subclass, so the type must match exactly
-            .hasMessageContaining("Invalid number")
-            .hasMessageContaining("position");
+                .as("parsing %s", json)
+                .isExactlyInstanceOf(
+                        IllegalArgumentException
+                                .class) // NumberFormatException is a subclass, so the type must
+                // match exactly
+                .hasMessageContaining("Invalid number")
+                .hasMessageContaining("position");
     }
 
     @Test
@@ -304,29 +329,37 @@ class SimpleJsonTest {
     void shouldReportPositionOfBareMinus() {
         // index 0='{', 1='"', 2='v', 3='a', 4='l', 5='"', 6=':', 7='-'
         assertThatThrownBy(() -> SimpleJson.parse("{\"val\":-}"))
-            .isExactlyInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("position 7");
+                .isExactlyInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("position 7");
     }
 
     @ParameterizedTest(name = "Reject malformed unicode escape in ''{0}''")
-    @ValueSource(strings = {"\"\\u00zz\"", "\"\\u12\"", "\"\\uZZZZ\"", "\"\\u00\"",
-                            "{\"k\":\"\\u0g00\"}", "{\"k\":\"\\u"})
-    @DisplayName("parse should reject malformed \\u escapes as JSON errors instead of leaking NumberFormatException")
+    @ValueSource(
+            strings = {
+                "\"\\u00zz\"",
+                "\"\\u12\"",
+                "\"\\uZZZZ\"",
+                "\"\\u00\"",
+                "{\"k\":\"\\u0g00\"}",
+                "{\"k\":\"\\u"
+            })
+    @DisplayName(
+            "parse should reject malformed \\u escapes as JSON errors instead of leaking NumberFormatException")
     void shouldRejectMalformedUnicodeEscapes(String json) {
         assertThatThrownBy(() -> SimpleJson.parse(json))
-            .as("parsing %s", json)
-            .isExactlyInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Invalid unicode escape")
-            .hasMessageContaining("position");
+                .as("parsing %s", json)
+                .isExactlyInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid unicode escape")
+                .hasMessageContaining("position");
     }
 
     @Test
     @DisplayName("parse should pinpoint the offending character inside a \\u escape")
     void shouldPinpointOffendingHexDigit() {
         assertThatThrownBy(() -> SimpleJson.parse("\"\\u00zz\""))
-            .isExactlyInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("position 5")
-            .hasMessageContaining("'z'");
+                .isExactlyInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("position 5")
+                .hasMessageContaining("'z'");
     }
 
     @Test
@@ -334,8 +367,8 @@ class SimpleJsonTest {
     void shouldRejectNonAsciiDigits() {
         // U+0661 ARABIC-INDIC DIGIT ONE satisfies Character.isDigit but is never valid in JSON
         assertThatThrownBy(() -> SimpleJson.parse("{\"val\":\u0661}"))
-            .isExactlyInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Unexpected character");
+                .isExactlyInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Unexpected character");
     }
 
     @ParameterizedTest(name = "Parse valid number ''{0}'' as ''{1}''")
@@ -365,8 +398,8 @@ class SimpleJsonTest {
     @DisplayName("parse should decode valid \\u escapes next to numbers")
     void shouldDecodeValidUnicodeEscapes() {
         assertThat(SimpleJson.parse("\"\\u0041\\u00e9\\u4f60\"")).isEqualTo("A\u00e9\u4f60");
-        Map<String, Object> parsed = SimpleJson.parseObject(
-            "{\"name\":\"caf\\u00e9\",\"count\":-3,\"ratio\":1.25e2}");
+        Map<String, Object> parsed =
+                SimpleJson.parseObject("{\"name\":\"caf\\u00e9\",\"count\":-3,\"ratio\":1.25e2}");
         assertThat(parsed).containsEntry("name", "caf\u00e9");
         assertThat(parsed.get("count")).isEqualTo(-3);
         assertThat(((Number) parsed.get("ratio")).doubleValue()).isEqualTo(125.0);
@@ -384,7 +417,8 @@ class SimpleJsonTest {
     }
 
     @Test
-    @DisplayName("toJson should serialize Map with null key as \"null\" key without throwing NullPointerException")
+    @DisplayName(
+            "toJson should serialize Map with null key as \"null\" key without throwing NullPointerException")
     void shouldSerializeMapWithNullKeyAsNullString() {
         java.util.Map<String, Object> mapWithNullKey = new java.util.HashMap<>();
         mapWithNullKey.put(null, "valueForNull");
@@ -395,4 +429,3 @@ class SimpleJsonTest {
         assertThat(json).contains("\"normalKey\":123");
     }
 }
-

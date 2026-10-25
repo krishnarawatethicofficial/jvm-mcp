@@ -1,17 +1,16 @@
 package dev.jvmmcp.core.jmx;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import dev.jvmmcp.core.model.DeadlockReport;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.ReentrantLock;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 class DeadlockDetectionTest {
 
@@ -46,7 +45,8 @@ class DeadlockDetectionTest {
     }
 
     @Test
-    @DisplayName("detectDeadlocks should accurately identify circular lock chains and clean up cleanly")
+    @DisplayName(
+            "detectDeadlocks should accurately identify circular lock chains and clean up cleanly")
     void shouldDetectCircularDeadlock() throws Exception {
         ReentrantLock lockA = new ReentrantLock();
         ReentrantLock lockB = new ReentrantLock();
@@ -54,45 +54,51 @@ class DeadlockDetectionTest {
         CountDownLatch thread1AcquiredLockA = new CountDownLatch(1);
         CountDownLatch thread2AcquiredLockB = new CountDownLatch(1);
 
-        worker1 = new Thread(() -> {
-            try {
-                lockA.lockInterruptibly();
-                try {
-                    thread1AcquiredLockA.countDown();
-                    thread2AcquiredLockB.await(5, TimeUnit.SECONDS);
-                    lockB.lockInterruptibly();
-                    try {
-                        // Deadlocked region
-                    } finally {
-                        lockB.unlock();
-                    }
-                } finally {
-                    lockA.unlock();
-                }
-            } catch (InterruptedException ignored) {
-                // Unblock cleanly on tearDown
-            }
-        }, "Deadlock-Worker-1");
+        worker1 =
+                new Thread(
+                        () -> {
+                            try {
+                                lockA.lockInterruptibly();
+                                try {
+                                    thread1AcquiredLockA.countDown();
+                                    thread2AcquiredLockB.await(5, TimeUnit.SECONDS);
+                                    lockB.lockInterruptibly();
+                                    try {
+                                        // Deadlocked region
+                                    } finally {
+                                        lockB.unlock();
+                                    }
+                                } finally {
+                                    lockA.unlock();
+                                }
+                            } catch (InterruptedException ignored) {
+                                // Unblock cleanly on tearDown
+                            }
+                        },
+                        "Deadlock-Worker-1");
 
-        worker2 = new Thread(() -> {
-            try {
-                lockB.lockInterruptibly();
-                try {
-                    thread2AcquiredLockB.countDown();
-                    thread1AcquiredLockA.await(5, TimeUnit.SECONDS);
-                    lockA.lockInterruptibly();
-                    try {
-                        // Deadlocked region
-                    } finally {
-                        lockA.unlock();
-                    }
-                } finally {
-                    lockB.unlock();
-                }
-            } catch (InterruptedException ignored) {
-                // Unblock cleanly on tearDown
-            }
-        }, "Deadlock-Worker-2");
+        worker2 =
+                new Thread(
+                        () -> {
+                            try {
+                                lockB.lockInterruptibly();
+                                try {
+                                    thread2AcquiredLockB.countDown();
+                                    thread1AcquiredLockA.await(5, TimeUnit.SECONDS);
+                                    lockA.lockInterruptibly();
+                                    try {
+                                        // Deadlocked region
+                                    } finally {
+                                        lockA.unlock();
+                                    }
+                                } finally {
+                                    lockB.unlock();
+                                }
+                            } catch (InterruptedException ignored) {
+                                // Unblock cleanly on tearDown
+                            }
+                        },
+                        "Deadlock-Worker-2");
 
         worker1.setDaemon(true);
         worker2.setDaemon(true);
@@ -101,27 +107,40 @@ class DeadlockDetectionTest {
         worker2.start();
 
         // Wait until both threads have started and acquired their initial locks
-        boolean acquired = thread1AcquiredLockA.await(5, TimeUnit.SECONDS) && thread2AcquiredLockB.await(5, TimeUnit.SECONDS);
+        boolean acquired =
+                thread1AcquiredLockA.await(5, TimeUnit.SECONDS)
+                        && thread2AcquiredLockB.await(5, TimeUnit.SECONDS);
         assertThat(acquired).isTrue();
 
         // Condition-based polling with Awaitility to eliminate timing flakiness in CI
         Awaitility.await()
-            .atMost(5, TimeUnit.SECONDS)
-            .pollInterval(50, TimeUnit.MILLISECONDS)
-            .untilAsserted(() -> {
-                DeadlockReport report = threadClient.detectDeadlocks();
+                .atMost(5, TimeUnit.SECONDS)
+                .pollInterval(50, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            DeadlockReport report = threadClient.detectDeadlocks();
 
-                assertThat(report).isNotNull();
-                assertThat(report.status()).isEqualTo("DETECTED");
-                assertThat(report.deadlockCount()).isGreaterThanOrEqualTo(2);
-                assertThat(report.chain()).hasSizeGreaterThanOrEqualTo(2);
-                assertThat(report.recommendation()).contains("Deadlock detected");
+                            assertThat(report).isNotNull();
+                            assertThat(report.status()).isEqualTo("DETECTED");
+                            assertThat(report.deadlockCount()).isGreaterThanOrEqualTo(2);
+                            assertThat(report.chain()).hasSizeGreaterThanOrEqualTo(2);
+                            assertThat(report.recommendation()).contains("Deadlock detected");
 
-                boolean containsThread1 = report.chain().stream().anyMatch(d -> "Deadlock-Worker-1".equals(d.threadName()));
-                boolean containsThread2 = report.chain().stream().anyMatch(d -> "Deadlock-Worker-2".equals(d.threadName()));
+                            boolean containsThread1 =
+                                    report.chain().stream()
+                                            .anyMatch(
+                                                    d ->
+                                                            "Deadlock-Worker-1"
+                                                                    .equals(d.threadName()));
+                            boolean containsThread2 =
+                                    report.chain().stream()
+                                            .anyMatch(
+                                                    d ->
+                                                            "Deadlock-Worker-2"
+                                                                    .equals(d.threadName()));
 
-                assertThat(containsThread1).isTrue();
-                assertThat(containsThread2).isTrue();
-            });
+                            assertThat(containsThread1).isTrue();
+                            assertThat(containsThread2).isTrue();
+                        });
     }
 }

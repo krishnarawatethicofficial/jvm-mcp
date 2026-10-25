@@ -2,7 +2,6 @@ package dev.jvmmcp.server.tool;
 
 import dev.jvmmcp.core.spring.ActuatorAuth;
 import dev.jvmmcp.core.spring.ActuatorClient;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -10,7 +9,8 @@ import java.util.Map;
 import java.util.function.Function;
 
 /**
- * Handles Spring Boot Actuator tools: get_actuator_health, get_actuator_metrics, get_actuator_startup.
+ * Handles Spring Boot Actuator tools: get_actuator_health, get_actuator_metrics,
+ * get_actuator_startup.
  */
 public class ActuatorToolHandler implements ToolHandler {
 
@@ -30,7 +30,8 @@ public class ActuatorToolHandler implements ToolHandler {
         this(clientFactory, System::getenv);
     }
 
-    public ActuatorToolHandler(ActuatorClientFactory clientFactory, Function<String, String> envProvider) {
+    public ActuatorToolHandler(
+            ActuatorClientFactory clientFactory, Function<String, String> envProvider) {
         this.clientFactory = clientFactory;
         this.envProvider = envProvider;
     }
@@ -43,41 +44,58 @@ public class ActuatorToolHandler implements ToolHandler {
     @Override
     public List<Map<String, Object>> toolDefinitions() {
         return List.of(
-            Map.of(
-                "name", "get_actuator_health",
-                "description", "Fetches Spring Boot Actuator /health endpoint",
-                "inputSchema", Map.of(
-                    "type", "object",
-                    "properties", Map.of(
-                        "url", Map.of("type", "string", "description", "Actuator Base URL (e.g. http://localhost:8080)")
-                    ),
-                    "required", List.of("url")
-                )
-            ),
-            Map.of(
-                "name", "get_actuator_metrics",
-                "description", "Fetches Spring Boot Actuator /metrics endpoint. Optionally pass metricName to get a specific metric.",
-                "inputSchema", Map.of(
-                    "type", "object",
-                    "properties", Map.of(
-                        "url", Map.of("type", "string", "description", "Actuator Base URL (e.g. http://localhost:8080)"),
-                        "metrics", Map.of("type", "string", "description", "Optional comma-separated list of metric names (e.g. jvm.memory.used,jvm.threads.live)")
-                    ),
-                    "required", List.of("url")
-                )
-            ),
-            Map.of(
-                "name", "get_actuator_startup",
-                "description", "Fetches Spring Boot Actuator /startup endpoint",
-                "inputSchema", Map.of(
-                    "type", "object",
-                    "properties", Map.of(
-                        "url", Map.of("type", "string", "description", "Actuator Base URL (e.g. http://localhost:8080)")
-                    ),
-                    "required", List.of("url")
-                )
-            )
-        );
+                Map.of(
+                        "name", "get_actuator_health",
+                        "description", "Fetches Spring Boot Actuator /health endpoint",
+                        "inputSchema",
+                                Map.of(
+                                        "type", "object",
+                                        "properties",
+                                                Map.of(
+                                                        "url",
+                                                        Map.of(
+                                                                "type",
+                                                                "string",
+                                                                "description",
+                                                                "Actuator Base URL (e.g. http://localhost:8080)")),
+                                        "required", List.of("url"))),
+                Map.of(
+                        "name", "get_actuator_metrics",
+                        "description",
+                                "Fetches Spring Boot Actuator /metrics endpoint. Optionally pass metricName to get a specific metric.",
+                        "inputSchema",
+                                Map.of(
+                                        "type", "object",
+                                        "properties",
+                                                Map.of(
+                                                        "url",
+                                                                Map.of(
+                                                                        "type",
+                                                                        "string",
+                                                                        "description",
+                                                                        "Actuator Base URL (e.g. http://localhost:8080)"),
+                                                        "metrics",
+                                                                Map.of(
+                                                                        "type",
+                                                                        "string",
+                                                                        "description",
+                                                                        "Optional comma-separated list of metric names (e.g. jvm.memory.used,jvm.threads.live)")),
+                                        "required", List.of("url"))),
+                Map.of(
+                        "name", "get_actuator_startup",
+                        "description", "Fetches Spring Boot Actuator /startup endpoint",
+                        "inputSchema",
+                                Map.of(
+                                        "type", "object",
+                                        "properties",
+                                                Map.of(
+                                                        "url",
+                                                        Map.of(
+                                                                "type",
+                                                                "string",
+                                                                "description",
+                                                                "Actuator Base URL (e.g. http://localhost:8080)")),
+                                        "required", List.of("url"))));
     }
 
     @Override
@@ -88,10 +106,15 @@ public class ActuatorToolHandler implements ToolHandler {
         String token = envProvider.apply("ACTUATOR_TOKEN");
         boolean insecure = "true".equalsIgnoreCase(envProvider.apply("ACTUATOR_INSECURE"));
 
-        ActuatorAuth auth = token != null ? ActuatorAuth.bearer(token, insecure) : ActuatorAuth.basic(user, password, insecure);
-        auth.validate().ifPresent(error -> {
-            throw new IllegalArgumentException(error);
-        });
+        ActuatorAuth auth =
+                token != null
+                        ? ActuatorAuth.bearer(token, insecure)
+                        : ActuatorAuth.basic(user, password, insecure);
+        auth.validate()
+                .ifPresent(
+                        error -> {
+                            throw new IllegalArgumentException(error);
+                        });
 
         ActuatorClient client = clientFactory.create(url, auth);
         List<Map<String, Object>> content = new ArrayList<>();
@@ -102,13 +125,15 @@ public class ActuatorToolHandler implements ToolHandler {
             String metricsParam = ToolArgs.getStringArg(args, "metrics", false);
             if (metricsParam != null && !metricsParam.isBlank()) {
                 if (metricsParam.contains(",")) {
-                    List<String> metricList = Arrays.stream(metricsParam.split(","))
-                        .map(String::trim)
-                        .filter(s -> !s.isEmpty())
-                        .toList();
+                    List<String> metricList =
+                            Arrays.stream(metricsParam.split(","))
+                                    .map(String::trim)
+                                    .filter(s -> !s.isEmpty())
+                                    .toList();
                     content.add(Map.of("type", "text", "text", client.getMetricsBatch(metricList)));
                 } else {
-                    content.add(Map.of("type", "text", "text", client.getMetric(metricsParam.trim())));
+                    content.add(
+                            Map.of("type", "text", "text", client.getMetric(metricsParam.trim())));
                 }
             } else {
                 content.add(Map.of("type", "text", "text", client.getMetrics()));

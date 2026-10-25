@@ -1,11 +1,9 @@
 package dev.jvmmcp.core.pg;
 
-import dev.jvmmcp.core.pg.PostgresModels.*;
-import dev.jvmmcp.core.util.SensitiveDataRedactor;
-
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-
+import dev.jvmmcp.core.pg.PostgresModels.*;
+import dev.jvmmcp.core.util.SensitiveDataRedactor;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -25,29 +23,40 @@ public class PostgresSchemaReader implements AutoCloseable {
 
     private static final int MAX_CACHED_POOLS = 5;
     private static final int QUERY_TIMEOUT_SECONDS = 10;
-    
+
     // LRU Cache for DataSources to prevent connection leaks across different databases
-    private static final Map<String, HikariDataSource> DATA_SOURCES = new LinkedHashMap<>(16, 0.75f, true) {
-        @Override
-        protected boolean removeEldestEntry(Map.Entry<String, HikariDataSource> eldest) {
-            if (size() > MAX_CACHED_POOLS) {
-                try {
-                    eldest.getValue().close();
-                } catch (Exception ignored) {}
-                return true;
-            }
-            return false;
-        }
-    };
+    private static final Map<String, HikariDataSource> DATA_SOURCES =
+            new LinkedHashMap<>(16, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, HikariDataSource> eldest) {
+                    if (size() > MAX_CACHED_POOLS) {
+                        try {
+                            eldest.getValue().close();
+                        } catch (Exception ignored) {
+                        }
+                        return true;
+                    }
+                    return false;
+                }
+            };
 
     static {
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            synchronized (DATA_SOURCES) {
-                DATA_SOURCES.values().forEach(ds -> {
-                    try { ds.close(); } catch (Exception ignored) {}
-                });
-            }
-        }));
+        Runtime.getRuntime()
+                .addShutdownHook(
+                        new Thread(
+                                () -> {
+                                    synchronized (DATA_SOURCES) {
+                                        DATA_SOURCES
+                                                .values()
+                                                .forEach(
+                                                        ds -> {
+                                                            try {
+                                                                ds.close();
+                                                            } catch (Exception ignored) {
+                                                            }
+                                                        });
+                                    }
+                                }));
     }
 
     private final String jdbcUrl;
@@ -63,71 +72,91 @@ public class PostgresSchemaReader implements AutoCloseable {
 
     public static void validateJdbcUrl(String jdbcUrl) {
         if (jdbcUrl == null || !jdbcUrl.startsWith("jdbc:postgresql://")) {
-            throw new IllegalArgumentException("Invalid PostgreSQL JDBC URL: must start with jdbc:postgresql://");
+            throw new IllegalArgumentException(
+                    "Invalid PostgreSQL JDBC URL: must start with jdbc:postgresql://");
         }
         if (jdbcUrl.contains(",")) {
-            throw new IllegalArgumentException("SSRF Protection: Multi-host JDBC URLs are prohibited");
+            throw new IllegalArgumentException(
+                    "SSRF Protection: Multi-host JDBC URLs are prohibited");
         }
-        
+
         String uriStr = jdbcUrl.substring(5); // strip "jdbc:"
         java.net.URI uri;
         try {
             uri = java.net.URI.create(uriStr);
         } catch (Exception e) {
-            throw new IllegalArgumentException("Malformed PostgreSQL JDBC URL: " + e.getMessage(), e);
+            throw new IllegalArgumentException(
+                    "Malformed PostgreSQL JDBC URL: " + e.getMessage(), e);
         }
 
         if (uri.getUserInfo() != null) {
-            throw new IllegalArgumentException("SSRF Protection: Embedded userinfo in JDBC URL is prohibited");
+            throw new IllegalArgumentException(
+                    "SSRF Protection: Embedded userinfo in JDBC URL is prohibited");
         }
 
         String rawAuthority = uri.getRawAuthority();
         if (rawAuthority != null && rawAuthority.contains(",")) {
-            throw new IllegalArgumentException("SSRF Protection: Multi-host JDBC URLs are prohibited");
+            throw new IllegalArgumentException(
+                    "SSRF Protection: Multi-host JDBC URLs are prohibited");
         }
 
         String host = uri.getHost();
         if (host == null || host.isBlank()) {
             throw new IllegalArgumentException("SSRF Protection: Missing host in JDBC URL");
         }
-        String cleanHost = host.startsWith("[") && host.endsWith("]") ? host.substring(1, host.length() - 1) : host;
-        boolean isLiteralLoopback = cleanHost.equalsIgnoreCase("localhost")
-            || cleanHost.equals("127.0.0.1")
-            || cleanHost.equals("::1")
-            || cleanHost.equals("0:0:0:0:0:0:0:1");
+        String cleanHost =
+                host.startsWith("[") && host.endsWith("]")
+                        ? host.substring(1, host.length() - 1)
+                        : host;
+        boolean isLiteralLoopback =
+                cleanHost.equalsIgnoreCase("localhost")
+                        || cleanHost.equals("127.0.0.1")
+                        || cleanHost.equals("::1")
+                        || cleanHost.equals("0:0:0:0:0:0:0:1");
 
         if (!isLiteralLoopback) {
-            throw new IllegalArgumentException("SSRF Protection: JDBC URL host must target localhost or loopback (got: " + host + ")");
+            throw new IllegalArgumentException(
+                    "SSRF Protection: JDBC URL host must target localhost or loopback (got: "
+                            + host
+                            + ")");
         }
 
         try {
             java.net.InetAddress[] addresses = java.net.InetAddress.getAllByName(cleanHost);
             for (java.net.InetAddress addr : addresses) {
                 if (!addr.isLoopbackAddress()) {
-                    throw new IllegalArgumentException("SSRF Protection: Resolved address " + addr.getHostAddress() + " for host '" + host + "' is not a loopback address");
+                    throw new IllegalArgumentException(
+                            "SSRF Protection: Resolved address "
+                                    + addr.getHostAddress()
+                                    + " for host '"
+                                    + host
+                                    + "' is not a loopback address");
                 }
             }
         } catch (java.net.UnknownHostException e) {
-            throw new IllegalArgumentException("SSRF Protection: Unable to resolve host '" + host + "': " + e.getMessage(), e);
+            throw new IllegalArgumentException(
+                    "SSRF Protection: Unable to resolve host '" + host + "': " + e.getMessage(), e);
         }
 
         String query = uri.getQuery();
         if (query != null && !query.isBlank()) {
             String lower = query.toLowerCase();
-            if (lower.contains("socketfactory") ||
-                lower.contains("socketfactoryarg") ||
-                lower.contains("sslfactory") ||
-                lower.contains("sslfactoryarg") ||
-                lower.contains("sslrootcert") ||
-                lower.contains("sslcert") ||
-                lower.contains("sslkey") ||
-                lower.contains("sslpasswordcallback") ||
-                lower.contains("loggerfile") ||
-                lower.contains("loggerlevel") ||
-                lower.contains("allowencodingchanges") ||
-                lower.contains("options=") ||
-                lower.contains("sslmode=disable")) {
-                throw new IllegalArgumentException("Security Protection: Dangerous JDBC connection parameter detected in URL: " + query);
+            if (lower.contains("socketfactory")
+                    || lower.contains("socketfactoryarg")
+                    || lower.contains("sslfactory")
+                    || lower.contains("sslfactoryarg")
+                    || lower.contains("sslrootcert")
+                    || lower.contains("sslcert")
+                    || lower.contains("sslkey")
+                    || lower.contains("sslpasswordcallback")
+                    || lower.contains("loggerfile")
+                    || lower.contains("loggerlevel")
+                    || lower.contains("allowencodingchanges")
+                    || lower.contains("options=")
+                    || lower.contains("sslmode=disable")) {
+                throw new IllegalArgumentException(
+                        "Security Protection: Dangerous JDBC connection parameter detected in URL: "
+                                + query);
             }
         }
     }
@@ -138,7 +167,8 @@ public class PostgresSchemaReader implements AutoCloseable {
         }
         String trimmed = schemaName.trim();
         if (trimmed.length() > 63 || !trimmed.matches("^[a-zA-Z_][a-zA-Z0-9_]*$")) {
-            throw new IllegalArgumentException("Invalid schema name: must be a valid SQL identifier (alphanumeric and underscore, starting with letter/underscore, max 63 chars)");
+            throw new IllegalArgumentException(
+                    "Invalid schema name: must be a valid SQL identifier (alphanumeric and underscore, starting with letter/underscore, max 63 chars)");
         }
         // PostgreSQL folds unquoted identifiers to lowercase, and the catalogs this name is
         // compared against store them that way: "Sales" names the schema sales.
@@ -150,7 +180,8 @@ public class PostgresSchemaReader implements AutoCloseable {
         if (password != null && !password.isEmpty()) {
             try {
                 java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
-                byte[] digest = md.digest(password.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                byte[] digest =
+                        md.digest(password.getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 StringBuilder hex = new StringBuilder();
                 for (byte b : digest) {
                     hex.append(String.format("%02x", b));
@@ -164,12 +195,11 @@ public class PostgresSchemaReader implements AutoCloseable {
     }
 
     @Override
-    public void close() {
-    }
+    public void close() {}
 
     private Connection getConnection() throws SQLException {
         String cacheKey = buildCacheKey(jdbcUrl, username, password);
-        
+
         HikariDataSource ds;
         synchronized (DATA_SOURCES) {
             ds = DATA_SOURCES.get(cacheKey);
@@ -185,13 +215,14 @@ public class PostgresSchemaReader implements AutoCloseable {
                 config.setMaximumPoolSize(3);
                 config.setConnectionTimeout(5000);
                 config.setIdleTimeout(600000);
-                config.setReadOnly(true); // Optimization: Schema introspection is strictly read-only
-                
+                config.setReadOnly(
+                        true); // Optimization: Schema introspection is strictly read-only
+
                 ds = new HikariDataSource(config);
                 DATA_SOURCES.put(cacheKey, ds);
             }
         }
-        
+
         return ds.getConnection();
     }
 
@@ -206,7 +237,8 @@ public class PostgresSchemaReader implements AutoCloseable {
     }
 
     private List<TableInfo> getTables(Connection conn, String schemaName) throws SQLException {
-        String sql = """
+        String sql =
+                """
             SELECT
                 t.table_name,
                 c.reltuples::bigint AS estimated_row_count,
@@ -225,12 +257,12 @@ public class PostgresSchemaReader implements AutoCloseable {
             ps.setString(1, schemaName);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    result.add(new TableInfo(
-                        rs.getString("table_name"),
-                        rs.getLong("estimated_row_count"),
-                        rs.getInt("column_count"),
-                        rs.getLong("size_bytes")
-                    ));
+                    result.add(
+                            new TableInfo(
+                                    rs.getString("table_name"),
+                                    rs.getLong("estimated_row_count"),
+                                    rs.getInt("column_count"),
+                                    rs.getLong("size_bytes")));
                 }
             }
         }
@@ -238,7 +270,8 @@ public class PostgresSchemaReader implements AutoCloseable {
     }
 
     private List<IndexInfo> getIndexes(Connection conn, String schemaName) throws SQLException {
-        String sql = """
+        String sql =
+                """
             SELECT
                 i.tablename AS table_name,
                 i.indexname AS index_name,
@@ -260,24 +293,26 @@ public class PostgresSchemaReader implements AutoCloseable {
             ps.setString(1, schemaName);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    result.add(new IndexInfo(
-                        rs.getString("table_name"),
-                        rs.getString("index_name"),
-                        rs.getString("index_def"),
-                        rs.getLong("size_bytes"),
-                        rs.getBoolean("is_unique"),
-                        rs.getBoolean("is_primary")
-                    ));
+                    result.add(
+                            new IndexInfo(
+                                    rs.getString("table_name"),
+                                    rs.getString("index_name"),
+                                    rs.getString("index_def"),
+                                    rs.getLong("size_bytes"),
+                                    rs.getBoolean("is_unique"),
+                                    rs.getBoolean("is_primary")));
                 }
             }
         }
         return result;
     }
 
-    private List<ForeignKeyInfo> getForeignKeys(Connection conn, String schemaName) throws SQLException {
+    private List<ForeignKeyInfo> getForeignKeys(Connection conn, String schemaName)
+            throws SQLException {
         // Optimized pg_catalog query using LATERAL unnest to accurately map composite keys
-        String sql = """
-            SELECT 
+        String sql =
+                """
+            SELECT
                 c.conname AS constraint_name,
                 c.conrelid::regclass::text AS source_table,
                 a_src.attname AS source_column,
@@ -288,7 +323,7 @@ public class PostgresSchemaReader implements AutoCloseable {
             CROSS JOIN LATERAL unnest(c.conkey, c.confkey) AS u(src_attnum, tgt_attnum)
             JOIN pg_attribute a_src ON a_src.attrelid = c.conrelid AND a_src.attnum = u.src_attnum
             JOIN pg_attribute a_tgt ON a_tgt.attrelid = c.confrelid AND a_tgt.attnum = u.tgt_attnum
-            WHERE c.contype = 'f' 
+            WHERE c.contype = 'f'
             AND n.nspname = ?
             """;
         List<ForeignKeyInfo> result = new ArrayList<>();
@@ -300,14 +335,14 @@ public class PostgresSchemaReader implements AutoCloseable {
                     // Extract just the table name without schema prefix if it exists
                     String srcTable = stripSchemaPrefix(rs.getString("source_table"), schemaName);
                     String tgtTable = stripSchemaPrefix(rs.getString("foreign_table"), schemaName);
-                    
-                    result.add(new ForeignKeyInfo(
-                        srcTable,
-                        rs.getString("constraint_name"),
-                        rs.getString("source_column"),
-                        tgtTable,
-                        rs.getString("foreign_column")
-                    ));
+
+                    result.add(
+                            new ForeignKeyInfo(
+                                    srcTable,
+                                    rs.getString("constraint_name"),
+                                    rs.getString("source_column"),
+                                    tgtTable,
+                                    rs.getString("foreign_column")));
                 }
             }
         }
@@ -326,15 +361,17 @@ public class PostgresSchemaReader implements AutoCloseable {
     }
 
     /**
-     * Finds scan-heavy tables at least {@code minTableSizeBytes} bytes in size.
-     * Use zero to disable the table-size filter.
+     * Finds scan-heavy tables at least {@code minTableSizeBytes} bytes in size. Use zero to disable
+     * the table-size filter.
      */
-    public MissingIndexAnalysis findMissingIndexes(String schemaName, long minTableSizeBytes) throws SQLException {
+    public MissingIndexAnalysis findMissingIndexes(String schemaName, long minTableSizeBytes)
+            throws SQLException {
         if (minTableSizeBytes < 0) {
             throw new IllegalArgumentException("Minimum table size must be non-negative");
         }
         String safeSchema = validateSchemaName(schemaName);
-        String sql = """
+        String sql =
+                """
             SELECT
                 relname AS table_name,
                 seq_scan,
@@ -354,19 +391,19 @@ public class PostgresSchemaReader implements AutoCloseable {
             """;
         List<MissingIndexCandidate> candidates = new ArrayList<>();
         try (Connection conn = getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
             ps.setString(1, safeSchema);
             ps.setLong(2, minTableSizeBytes);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    candidates.add(new MissingIndexCandidate(
-                        rs.getString("table_name"),
-                        rs.getLong("seq_scan"),
-                        rs.getLong("seq_tup_read"),
-                        rs.getLong("idx_scan"),
-                        rs.getLong("idx_tup_fetch")
-                    ));
+                    candidates.add(
+                            new MissingIndexCandidate(
+                                    rs.getString("table_name"),
+                                    rs.getLong("seq_scan"),
+                                    rs.getLong("seq_tup_read"),
+                                    rs.getLong("idx_scan"),
+                                    rs.getLong("idx_tup_fetch")));
                 }
             }
         }
@@ -378,8 +415,8 @@ public class PostgresSchemaReader implements AutoCloseable {
     }
 
     /**
-     * Finds the slowest statements by mean execution time, returning at most {@code limit}
-     * of them. The limit is clamped to between 1 and {@link #MAX_SLOW_QUERY_LIMIT}.
+     * Finds the slowest statements by mean execution time, returning at most {@code limit} of them.
+     * The limit is clamped to between 1 and {@link #MAX_SLOW_QUERY_LIMIT}.
      */
     public SlowQueryAnalysis findSlowQueries(int limit) throws SQLException {
         int effectiveLimit = slowQueryLimit(limit);
@@ -387,7 +424,9 @@ public class PostgresSchemaReader implements AutoCloseable {
         try (Connection conn = getConnection()) {
             try (Statement stmt = conn.createStatement()) {
                 stmt.setQueryTimeout(QUERY_TIMEOUT_SECONDS);
-                try (ResultSet rs = stmt.executeQuery("SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements'")) {
+                try (ResultSet rs =
+                        stmt.executeQuery(
+                                "SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements'")) {
                     if (rs.next()) {
                         hasExtension = true;
                     }
@@ -400,25 +439,27 @@ public class PostgresSchemaReader implements AutoCloseable {
                 return new SlowQueryAnalysis(false, List.of());
             }
 
-            // Universal JSON-based query bypassing parse-time column validation for backward compatibility (PG 12 / 13+)
-            String sql = """
+            // Universal JSON-based query bypassing parse-time column validation for backward
+            // compatibility (PG 12 / 13+)
+            String sql =
+                    """
                 SELECT
                     query,
                     calls,
                     COALESCE(
-                        (row_to_json(pss)->>'mean_exec_time')::numeric, 
+                        (row_to_json(pss)->>'mean_exec_time')::numeric,
                         (row_to_json(pss)->>'mean_time')::numeric,
                         0.0
                     ) AS compatible_mean_time,
                     COALESCE(
-                        (row_to_json(pss)->>'max_exec_time')::numeric, 
+                        (row_to_json(pss)->>'max_exec_time')::numeric,
                         (row_to_json(pss)->>'max_time')::numeric,
                         0.0
                     ) AS compatible_max_time,
                     rows
                 FROM
                     pg_stat_statements pss
-                WHERE 
+                WHERE
                     dbid = (SELECT oid FROM pg_database WHERE datname = current_database())
                 ORDER BY
                     compatible_mean_time DESC
@@ -432,13 +473,13 @@ public class PostgresSchemaReader implements AutoCloseable {
                     while (rs.next()) {
                         String rawQuery = rs.getString("query");
                         String sanitizedQuery = sanitizeQuery(rawQuery);
-                        slowQueries.add(new SlowQueryInfo(
-                            sanitizedQuery,
-                            rs.getLong("calls"),
-                            rs.getDouble("compatible_mean_time"),
-                            rs.getDouble("compatible_max_time"),
-                            rs.getLong("rows")
-                        ));
+                        slowQueries.add(
+                                new SlowQueryInfo(
+                                        sanitizedQuery,
+                                        rs.getLong("calls"),
+                                        rs.getDouble("compatible_mean_time"),
+                                        rs.getDouble("compatible_max_time"),
+                                        rs.getLong("rows")));
                     }
                 }
             } catch (SQLException e) {

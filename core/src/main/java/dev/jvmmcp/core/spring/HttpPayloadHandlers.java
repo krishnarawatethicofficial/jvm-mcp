@@ -14,24 +14,28 @@ import java.util.concurrent.Flow;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.InflaterInputStream;
 
-/**
- * Shared size-limited HTTP response handling for Spring Actuator requests.
- */
+/** Shared size-limited HTTP response handling for Spring Actuator requests. */
 final class HttpPayloadHandlers {
 
     private HttpPayloadHandlers() {}
 
     static HttpResponse.BodyHandler<String> limitingStringHandler(long maxBytes) {
         return responseInfo -> {
-            responseInfo.headers().firstValueAsLong("Content-Length").ifPresent(len -> {
-                if (len > maxBytes) {
-                    throw new IllegalArgumentException("Content-Length " + len + " exceeds limit " + maxBytes);
-                }
-            });
+            responseInfo
+                    .headers()
+                    .firstValueAsLong("Content-Length")
+                    .ifPresent(
+                            len -> {
+                                if (len > maxBytes) {
+                                    throw new IllegalArgumentException(
+                                            "Content-Length " + len + " exceeds limit " + maxBytes);
+                                }
+                            });
 
             String encoding = responseInfo.headers().firstValue("Content-Encoding").orElse(null);
-            HttpResponse.BodySubscriber<byte[]> byteSubscriber = HttpResponse.BodySubscribers.ofByteArray();
-            
+            HttpResponse.BodySubscriber<byte[]> byteSubscriber =
+                    HttpResponse.BodySubscribers.ofByteArray();
+
             return new HttpResponse.BodySubscriber<String>() {
                 private long totalReceived = 0;
                 private Flow.Subscription subscription;
@@ -52,7 +56,11 @@ final class HttpPayloadHandlers {
 
                     if (totalReceived > maxBytes) {
                         subscription.cancel();
-                        byteSubscriber.onError(new IOException("Response size exceeded maximum limit of " + maxBytes + " bytes"));
+                        byteSubscriber.onError(
+                                new IOException(
+                                        "Response size exceeded maximum limit of "
+                                                + maxBytes
+                                                + " bytes"));
                         return;
                     }
                     byteSubscriber.onNext(item);
@@ -70,19 +78,23 @@ final class HttpPayloadHandlers {
 
                 @Override
                 public CompletionStage<String> getBody() {
-                    return byteSubscriber.getBody().thenApply(bytes -> {
-                        try {
-                            return decodeResponseBody(bytes, encoding, maxBytes);
-                        } catch (IOException e) {
-                            throw new UncheckedIOException(e);
-                        }
-                    });
+                    return byteSubscriber
+                            .getBody()
+                            .thenApply(
+                                    bytes -> {
+                                        try {
+                                            return decodeResponseBody(bytes, encoding, maxBytes);
+                                        } catch (IOException e) {
+                                            throw new UncheckedIOException(e);
+                                        }
+                                    });
                 }
             };
         };
     }
 
-    private static String decodeResponseBody(byte[] bytes, String encoding, long maxUncompressedBytes) throws IOException {
+    private static String decodeResponseBody(
+            byte[] bytes, String encoding, long maxUncompressedBytes) throws IOException {
         if (bytes == null || bytes.length == 0) {
             return "";
         }
@@ -92,19 +104,22 @@ final class HttpPayloadHandlers {
         } else if ("deflate".equalsIgnoreCase(encoding)) {
             is = new InflaterInputStream(is);
         }
-        try (InputStream in = is; ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+        try (InputStream in = is;
+                ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             byte[] buf = new byte[8192];
             int read;
             long total = 0;
             while ((read = in.read(buf)) != -1) {
                 total += read;
                 if (total > maxUncompressedBytes) {
-                    throw new IOException("Decompressed response size exceeded maximum limit of " + maxUncompressedBytes + " bytes");
+                    throw new IOException(
+                            "Decompressed response size exceeded maximum limit of "
+                                    + maxUncompressedBytes
+                                    + " bytes");
                 }
                 baos.write(buf, 0, read);
             }
             return baos.toString(StandardCharsets.UTF_8);
         }
     }
-
 }

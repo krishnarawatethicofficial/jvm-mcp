@@ -2,7 +2,6 @@ package dev.jvmmcp.server.transport;
 
 import dev.jvmmcp.core.util.SimpleJson;
 import dev.jvmmcp.server.protocol.McpDispatcher;
-
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
@@ -14,8 +13,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Manages stdio transport, line reading loop, virtual-thread concurrency,
- * synchronized response writing, and graceful termination.
+ * Manages stdio transport, line reading loop, virtual-thread concurrency, synchronized response
+ * writing, and graceful termination.
  */
 public class McpTransport {
 
@@ -49,7 +48,10 @@ public class McpTransport {
     public static final int MAX_REQUEST_BYTES = 4 * 1024 * 1024; // 4MB
 
     public int start(InputStream in, PrintStream out) {
-        ExecutorService executor = customExecutor != null ? customExecutor : Executors.newVirtualThreadPerTaskExecutor();
+        ExecutorService executor =
+                customExecutor != null
+                        ? customExecutor
+                        : Executors.newVirtualThreadPerTaskExecutor();
         try {
             try (BoundedLineReader reader = new BoundedLineReader(in, MAX_REQUEST_BYTES)) {
                 while (true) {
@@ -58,7 +60,12 @@ public class McpTransport {
                         line = reader.readLine();
                     } catch (LineTooLargeException e) {
                         System.err.println("[jvm-mcp] Request rejected: " + e.getMessage());
-                        sendResponse(out, dispatcher.formatParseError("Request exceeds maximum size limit of " + MAX_REQUEST_BYTES + " bytes"));
+                        sendResponse(
+                                out,
+                                dispatcher.formatParseError(
+                                        "Request exceeds maximum size limit of "
+                                                + MAX_REQUEST_BYTES
+                                                + " bytes"));
                         continue;
                     }
 
@@ -69,15 +76,19 @@ public class McpTransport {
                         continue;
                     }
                     final String requestLine = line;
-                    executor.submit(() -> {
-                        try {
-                            Optional<Map<String, Object>> response = dispatcher.dispatch(requestLine);
-                            response.ifPresent(resp -> sendResponse(out, resp));
-                        } catch (Exception e) {
-                            System.err.println("[jvm-mcp] Error processing request: " + e.getMessage());
-                            sendResponse(out, dispatcher.formatParseError(e.getMessage()));
-                        }
-                    });
+                    executor.submit(
+                            () -> {
+                                try {
+                                    Optional<Map<String, Object>> response =
+                                            dispatcher.dispatch(requestLine);
+                                    response.ifPresent(resp -> sendResponse(out, resp));
+                                } catch (Exception e) {
+                                    System.err.println(
+                                            "[jvm-mcp] Error processing request: "
+                                                    + e.getMessage());
+                                    sendResponse(out, dispatcher.formatParseError(e.getMessage()));
+                                }
+                            });
                 }
             }
         } catch (Exception e) {

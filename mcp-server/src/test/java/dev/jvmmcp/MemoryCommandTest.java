@@ -1,5 +1,10 @@
 package dev.jvmmcp;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.when;
+
 import com.sun.tools.attach.VirtualMachine;
 import com.sun.tools.attach.VirtualMachineDescriptor;
 import com.sun.tools.attach.spi.AttachProvider;
@@ -14,15 +19,6 @@ import dev.jvmmcp.core.model.MemoryPressure;
 import dev.jvmmcp.core.model.MemoryPressureLevel;
 import dev.jvmmcp.core.model.MemoryUsageInfo;
 import dev.jvmmcp.core.util.SimpleJson;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import picocli.CommandLine;
-
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
@@ -32,23 +28,40 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.mockConstruction;
-import static org.mockito.Mockito.when;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import picocli.CommandLine;
 
 @ExtendWith(MockitoExtension.class)
 class MemoryCommandTest {
 
-    @Mock
-    private JvmAttachService mockAttachService;
+    @Mock private JvmAttachService mockAttachService;
 
     public static class DummyAttachProvider extends AttachProvider {
-        @Override public String name() { return "dummy"; }
-        @Override public String type() { return "dummy"; }
-        @Override public VirtualMachine attachVirtualMachine(String id) { return null; }
-        @Override public List<VirtualMachineDescriptor> listVirtualMachines() { return List.of(); }
+        @Override
+        public String name() {
+            return "dummy";
+        }
+
+        @Override
+        public String type() {
+            return "dummy";
+        }
+
+        @Override
+        public VirtualMachine attachVirtualMachine(String id) {
+            return null;
+        }
+
+        @Override
+        public List<VirtualMachineDescriptor> listVirtualMachines() {
+            return List.of();
+        }
     }
 
     public static class StubVirtualMachine extends VirtualMachine {
@@ -131,7 +144,8 @@ class MemoryCommandTest {
     @Test
     @DisplayName("memory command with non-existent PID should return error exit code")
     void shouldFailGracefullyOnNonExistentPid() {
-        when(mockAttachService.attach("999999999")).thenReturn(AttachResult.processNotFound("999999999"));
+        when(mockAttachService.attach("999999999"))
+                .thenReturn(AttachResult.processNotFound("999999999"));
 
         MemoryCommand command = new MemoryCommand(mockAttachService);
         command.pid = 999999999L;
@@ -153,7 +167,8 @@ class MemoryCommandTest {
     @DisplayName("memory command on successfully attached PID should report memory metrics")
     void shouldReportMemoryMetrics() {
         long targetPid = 100L;
-        when(mockAttachService.attach(String.valueOf(targetPid))).thenReturn(AttachResult.success(String.valueOf(targetPid), null));
+        when(mockAttachService.attach(String.valueOf(targetPid)))
+                .thenReturn(AttachResult.success(String.valueOf(targetPid), null));
 
         MemoryCommand command = new MemoryCommand(mockAttachService);
         command.pid = targetPid;
@@ -184,38 +199,47 @@ class MemoryCommandTest {
     @ParameterizedTest(name = "unbounded heap: {0}")
     @ValueSource(booleans = {false, true})
     @DisplayName("memory command should label unbounded quotas instead of printing a committed max")
-    void shouldLabelUnboundedPoolsWithoutFakeCommittedQuota(boolean unboundedHeap) throws Exception {
+    void shouldLabelUnboundedPoolsWithoutFakeCommittedQuota(boolean unboundedHeap)
+            throws Exception {
         long targetPid = 100L;
         long mb = 1024L * 1024L;
-        when(mockAttachService.attach(String.valueOf(targetPid))).thenReturn(AttachResult.success(String.valueOf(targetPid), null));
+        when(mockAttachService.attach(String.valueOf(targetPid)))
+                .thenReturn(AttachResult.success(String.valueOf(targetPid), null));
 
-        MemoryUsageInfo heap = MemoryUsageInfo.from(new MemoryUsage(0, 512 * mb, 1024 * mb, unboundedHeap ? -1 : 2048 * mb));
+        MemoryUsageInfo heap =
+                MemoryUsageInfo.from(
+                        new MemoryUsage(0, 512 * mb, 1024 * mb, unboundedHeap ? -1 : 2048 * mb));
         MemoryUsageInfo nonHeap = MemoryUsageInfo.from(new MemoryUsage(0, 64 * mb, 256 * mb, -1));
-        MemoryUsageInfo eden = MemoryUsageInfo.from(new MemoryUsage(0, 256 * mb, 512 * mb, 2048 * mb));
+        MemoryUsageInfo eden =
+                MemoryUsageInfo.from(new MemoryUsage(0, 256 * mb, 512 * mb, 2048 * mb));
         MemoryUsageInfo metaspace = MemoryUsageInfo.from(new MemoryUsage(0, 48 * mb, 128 * mb, -1));
         MemoryUsageInfo zeroBoundPool = MemoryUsageInfo.from(new MemoryUsage(0, 0, 0, 0));
-        HeapSummary summary = new HeapSummary(
-            targetPid,
-            heap,
-            nonHeap,
-            List.of(
-                new MemoryPoolInfo("G1 Eden Space", "HEAP", eden, eden),
-                new MemoryPoolInfo("Metaspace", "NON_HEAP", metaspace, metaspace),
-                new MemoryPoolInfo("Code Cache", "NON_HEAP", zeroBoundPool, zeroBoundPool)
-            ),
-            List.of(),
-            new MemoryPressure(MemoryPressureLevel.NORMAL, 0.25, 0L, 0L, "Heap looks healthy")
-        );
+        HeapSummary summary =
+                new HeapSummary(
+                        targetPid,
+                        heap,
+                        nonHeap,
+                        List.of(
+                                new MemoryPoolInfo("G1 Eden Space", "HEAP", eden, eden),
+                                new MemoryPoolInfo("Metaspace", "NON_HEAP", metaspace, metaspace),
+                                new MemoryPoolInfo(
+                                        "Code Cache", "NON_HEAP", zeroBoundPool, zeroBoundPool)),
+                        List.of(),
+                        new MemoryPressure(
+                                MemoryPressureLevel.NORMAL, 0.25, 0L, 0L, "Heap looks healthy"));
 
         MemoryCommand command = new MemoryCommand(mockAttachService);
         command.pid = targetPid;
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         PrintStream originalOut = System.out;
-	Locale originalFormatLocale = Locale.getDefault(Locale.Category.FORMAT);
-        try (var clients = mockConstruction(MemoryMXBeanClient.class,
-                (client, context) -> when(client.getHeapSummary(anyLong())).thenReturn(summary))) {
-	    Locale.setDefault(Locale.Category.FORMAT, Locale.forLanguageTag("pt-BR"));
+        Locale originalFormatLocale = Locale.getDefault(Locale.Category.FORMAT);
+        try (var clients =
+                mockConstruction(
+                        MemoryMXBeanClient.class,
+                        (client, context) ->
+                                when(client.getHeapSummary(anyLong())).thenReturn(summary))) {
+            Locale.setDefault(Locale.Category.FORMAT, Locale.forLanguageTag("pt-BR"));
             System.setOut(new PrintStream(out));
             Integer exitCode = command.call();
 
@@ -223,7 +247,8 @@ class MemoryCommandTest {
             assertThat(clients.constructed()).hasSize(1);
             String output = out.toString();
 
-            // Unbounded non-heap memory: explicit unknown label, never the committed value used as a quota.
+            // Unbounded non-heap memory: explicit unknown label, never the committed value used as
+            // a quota.
             String nonHeapLine = lineContaining(output, "Non-Heap Usage");
             assertThat(nonHeapLine).containsIgnoringCase("unbounded");
             assertThat(nonHeapLine).doesNotContain("256.00");
@@ -256,7 +281,7 @@ class MemoryCommandTest {
             assertThat(output).doesNotContain("-1.00");
         } finally {
             System.setOut(originalOut);
-	    Locale.setDefault(Locale.Category.FORMAT, originalFormatLocale);
+            Locale.setDefault(Locale.Category.FORMAT, originalFormatLocale);
         }
     }
 
@@ -264,16 +289,19 @@ class MemoryCommandTest {
     @DisplayName("memory command with --histogram and VM attached should print histogram table")
     void shouldPrintHeapHistogramWhenVmPresent() {
         long targetPid = ProcessHandle.current().pid();
-        String rawHistogram = """
+        String rawHistogram =
+                """
              num     #instances         #bytes  class name (module)
             -------------------------------------------------------
                1:         10000        2400000  java.lang.String (java.base@21)
                2:          5000        1200000  java.util.HashMap$Node (java.base@21)
             Total         15000        3600000
             """;
-        InputStream stream = new ByteArrayInputStream(rawHistogram.getBytes(StandardCharsets.UTF_8));
+        InputStream stream =
+                new ByteArrayInputStream(rawHistogram.getBytes(StandardCharsets.UTF_8));
         VirtualMachine stubVm = new StubVirtualMachine(stream);
-        when(mockAttachService.attach(String.valueOf(targetPid))).thenReturn(AttachResult.success(String.valueOf(targetPid), stubVm));
+        when(mockAttachService.attach(String.valueOf(targetPid)))
+                .thenReturn(AttachResult.success(String.valueOf(targetPid), stubVm));
 
         MemoryCommand command = new MemoryCommand(mockAttachService);
         command.pid = targetPid;
@@ -302,7 +330,8 @@ class MemoryCommandTest {
     @DisplayName("memory command with --histogram and VM absent should query histogram over JMX")
     void shouldPrintHeapHistogramWhenVmAbsent() {
         long targetPid = ProcessHandle.current().pid();
-        when(mockAttachService.attach(String.valueOf(targetPid))).thenReturn(AttachResult.success(String.valueOf(targetPid), null));
+        when(mockAttachService.attach(String.valueOf(targetPid)))
+                .thenReturn(AttachResult.success(String.valueOf(targetPid), null));
 
         MemoryCommand command = new MemoryCommand(mockAttachService);
         command.pid = targetPid;
@@ -328,7 +357,8 @@ class MemoryCommandTest {
     void shouldHandleHistogramExtractionError() {
         long targetPid = ProcessHandle.current().pid();
         VirtualMachine stubVm = new StubVirtualMachine(true);
-        when(mockAttachService.attach(String.valueOf(targetPid))).thenReturn(AttachResult.success(String.valueOf(targetPid), stubVm));
+        when(mockAttachService.attach(String.valueOf(targetPid)))
+                .thenReturn(AttachResult.success(String.valueOf(targetPid), stubVm));
 
         MemoryCommand command = new MemoryCommand(mockAttachService);
         command.pid = targetPid;
@@ -352,7 +382,8 @@ class MemoryCommandTest {
     @DisplayName("memory command should catch unexpected JMX connection failures")
     void shouldCatchJmxConnectionFailure() {
         long targetPid = 100L;
-        when(mockAttachService.attach(String.valueOf(targetPid))).thenThrow(new RuntimeException("Fatal attach failure"));
+        when(mockAttachService.attach(String.valueOf(targetPid)))
+                .thenThrow(new RuntimeException("Fatal attach failure"));
 
         MemoryCommand command = new MemoryCommand(mockAttachService);
         command.pid = targetPid;
@@ -383,7 +414,7 @@ class MemoryCommandTest {
         long targetPid = 999999L;
         StubVirtualMachine mockVm = new StubVirtualMachine(false);
         when(mockAttachService.attach(String.valueOf(targetPid)))
-            .thenReturn(AttachResult.success(String.valueOf(targetPid), mockVm));
+                .thenReturn(AttachResult.success(String.valueOf(targetPid), mockVm));
 
         MemoryCommand command = new MemoryCommand(mockAttachService);
         command.pid = targetPid;
@@ -395,34 +426,55 @@ class MemoryCommandTest {
 
     private static String lineContaining(String output, String needle) {
         return output.lines()
-            .filter(line -> line.contains(needle))
-            .findFirst()
-            .orElseThrow(() -> new AssertionError(
-                "No output line containing '" + needle + "' in:\n" + output));
+                .filter(line -> line.contains(needle))
+                .findFirst()
+                .orElseThrow(
+                        () ->
+                                new AssertionError(
+                                        "No output line containing '"
+                                                + needle
+                                                + "' in:\n"
+                                                + output));
     }
+
     @Test
     @DisplayName("memory command should output pure JSON with --json")
     void shouldOutputJsonSummary() throws Exception {
         long targetPid = 100L;
-        when(mockAttachService.attach(String.valueOf(targetPid))).thenReturn(AttachResult.success(String.valueOf(targetPid), null));
+        when(mockAttachService.attach(String.valueOf(targetPid)))
+                .thenReturn(AttachResult.success(String.valueOf(targetPid), null));
         long mb = 1024L * 1024L;
-        MemoryUsageInfo heap = MemoryUsageInfo.from(new MemoryUsage(0, 512 * mb, 1024 * mb, 2048 * mb));
-        MemoryUsageInfo nonHeap = MemoryUsageInfo.from(new MemoryUsage(0, 64 * mb, 128 * mb, 256 * mb));
-        HeapSummary summary = new HeapSummary(targetPid, heap, nonHeap, List.of(), List.of(),
-            new MemoryPressure(MemoryPressureLevel.NORMAL, 0.25, 0L, 0L, "Heap looks healthy"));
+        MemoryUsageInfo heap =
+                MemoryUsageInfo.from(new MemoryUsage(0, 512 * mb, 1024 * mb, 2048 * mb));
+        MemoryUsageInfo nonHeap =
+                MemoryUsageInfo.from(new MemoryUsage(0, 64 * mb, 128 * mb, 256 * mb));
+        HeapSummary summary =
+                new HeapSummary(
+                        targetPid,
+                        heap,
+                        nonHeap,
+                        List.of(),
+                        List.of(),
+                        new MemoryPressure(
+                                MemoryPressureLevel.NORMAL, 0.25, 0L, 0L, "Heap looks healthy"));
         MemoryCommand command = new MemoryCommand(mockAttachService);
         command.pid = targetPid;
         command.json = true;
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         PrintStream originalOut = System.out;
-        try (var clients = mockConstruction(MemoryMXBeanClient.class,
-                (client, context) -> when(client.getHeapSummary(anyLong())).thenReturn(summary))) {
+        try (var clients =
+                mockConstruction(
+                        MemoryMXBeanClient.class,
+                        (client, context) ->
+                                when(client.getHeapSummary(anyLong())).thenReturn(summary))) {
             System.setOut(new PrintStream(out));
             assertThat(command.call()).isZero();
             String output = out.toString().trim();
             assertThat(SimpleJson.parse(output)).isInstanceOf(java.util.Map.class);
-            assertThat(output).contains("\"pid\":100").doesNotContain("JVM MEMORY DIAGNOSTICS", "MEMORY POOLS");
+            assertThat(output)
+                    .contains("\"pid\":100")
+                    .doesNotContain("JVM MEMORY DIAGNOSTICS", "MEMORY POOLS");
         } finally {
             System.setOut(originalOut);
         }
@@ -432,23 +484,33 @@ class MemoryCommandTest {
     @DisplayName("memory command displays class loading metrics in table output when present")
     void shouldDisplayClassLoadingMetricsInTableOutput() throws Exception {
         long targetPid = 100L;
-        when(mockAttachService.attach(String.valueOf(targetPid))).thenReturn(AttachResult.success(String.valueOf(targetPid), null));
+        when(mockAttachService.attach(String.valueOf(targetPid)))
+                .thenReturn(AttachResult.success(String.valueOf(targetPid), null));
         long mb = 1024L * 1024L;
-        MemoryUsageInfo heap = MemoryUsageInfo.from(new MemoryUsage(0, 512 * mb, 1024 * mb, 2048 * mb));
-        MemoryUsageInfo nonHeap = MemoryUsageInfo.from(new MemoryUsage(0, 64 * mb, 128 * mb, 256 * mb));
+        MemoryUsageInfo heap =
+                MemoryUsageInfo.from(new MemoryUsage(0, 512 * mb, 1024 * mb, 2048 * mb));
+        MemoryUsageInfo nonHeap =
+                MemoryUsageInfo.from(new MemoryUsage(0, 64 * mb, 128 * mb, 256 * mb));
         ClassLoadingInfo classLoading = new ClassLoadingInfo(12345L, 14000L, 1655L);
-        HeapSummary summary = new HeapSummary(
-            targetPid, heap, nonHeap, List.of(), List.of(),
-            new MemoryPressure(MemoryPressureLevel.NORMAL, 0.25, 0L, 0L, "Healthy"),
-            classLoading
-        );
+        HeapSummary summary =
+                new HeapSummary(
+                        targetPid,
+                        heap,
+                        nonHeap,
+                        List.of(),
+                        List.of(),
+                        new MemoryPressure(MemoryPressureLevel.NORMAL, 0.25, 0L, 0L, "Healthy"),
+                        classLoading);
         MemoryCommand command = new MemoryCommand(mockAttachService);
         command.pid = targetPid;
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         PrintStream originalOut = System.out;
-        try (var clients = mockConstruction(MemoryMXBeanClient.class,
-                (client, context) -> when(client.getHeapSummary(anyLong())).thenReturn(summary))) {
+        try (var clients =
+                mockConstruction(
+                        MemoryMXBeanClient.class,
+                        (client, context) ->
+                                when(client.getHeapSummary(anyLong())).thenReturn(summary))) {
             System.setOut(new PrintStream(out));
             assertThat(command.call()).isZero();
             String output = out.toString();
@@ -459,25 +521,36 @@ class MemoryCommandTest {
     }
 
     @Test
-    @DisplayName("memory command omits class loading metrics in table output when classLoading is null")
+    @DisplayName(
+            "memory command omits class loading metrics in table output when classLoading is null")
     void shouldOmitClassLoadingMetricsInTableOutputWhenNull() throws Exception {
         long targetPid = 100L;
-        when(mockAttachService.attach(String.valueOf(targetPid))).thenReturn(AttachResult.success(String.valueOf(targetPid), null));
+        when(mockAttachService.attach(String.valueOf(targetPid)))
+                .thenReturn(AttachResult.success(String.valueOf(targetPid), null));
         long mb = 1024L * 1024L;
-        MemoryUsageInfo heap = MemoryUsageInfo.from(new MemoryUsage(0, 512 * mb, 1024 * mb, 2048 * mb));
-        MemoryUsageInfo nonHeap = MemoryUsageInfo.from(new MemoryUsage(0, 64 * mb, 128 * mb, 256 * mb));
-        HeapSummary summary = new HeapSummary(
-            targetPid, heap, nonHeap, List.of(), List.of(),
-            new MemoryPressure(MemoryPressureLevel.NORMAL, 0.25, 0L, 0L, "Healthy"),
-            null
-        );
+        MemoryUsageInfo heap =
+                MemoryUsageInfo.from(new MemoryUsage(0, 512 * mb, 1024 * mb, 2048 * mb));
+        MemoryUsageInfo nonHeap =
+                MemoryUsageInfo.from(new MemoryUsage(0, 64 * mb, 128 * mb, 256 * mb));
+        HeapSummary summary =
+                new HeapSummary(
+                        targetPid,
+                        heap,
+                        nonHeap,
+                        List.of(),
+                        List.of(),
+                        new MemoryPressure(MemoryPressureLevel.NORMAL, 0.25, 0L, 0L, "Healthy"),
+                        null);
         MemoryCommand command = new MemoryCommand(mockAttachService);
         command.pid = targetPid;
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         PrintStream originalOut = System.out;
-        try (var clients = mockConstruction(MemoryMXBeanClient.class,
-                (client, context) -> when(client.getHeapSummary(anyLong())).thenReturn(summary))) {
+        try (var clients =
+                mockConstruction(
+                        MemoryMXBeanClient.class,
+                        (client, context) ->
+                                when(client.getHeapSummary(anyLong())).thenReturn(summary))) {
             System.setOut(new PrintStream(out));
             assertThat(command.call()).isZero();
             String output = out.toString();
@@ -491,33 +564,48 @@ class MemoryCommandTest {
     @DisplayName("memory command includes class loading metrics in json output")
     void shouldIncludeClassLoadingInJsonOutput() throws Exception {
         long targetPid = 100L;
-        when(mockAttachService.attach(String.valueOf(targetPid))).thenReturn(AttachResult.success(String.valueOf(targetPid), null));
+        when(mockAttachService.attach(String.valueOf(targetPid)))
+                .thenReturn(AttachResult.success(String.valueOf(targetPid), null));
         long mb = 1024L * 1024L;
-        MemoryUsageInfo heap = MemoryUsageInfo.from(new MemoryUsage(0, 512 * mb, 1024 * mb, 2048 * mb));
-        MemoryUsageInfo nonHeap = MemoryUsageInfo.from(new MemoryUsage(0, 64 * mb, 128 * mb, 256 * mb));
+        MemoryUsageInfo heap =
+                MemoryUsageInfo.from(new MemoryUsage(0, 512 * mb, 1024 * mb, 2048 * mb));
+        MemoryUsageInfo nonHeap =
+                MemoryUsageInfo.from(new MemoryUsage(0, 64 * mb, 128 * mb, 256 * mb));
         ClassLoadingInfo classLoading = new ClassLoadingInfo(9876L, 10000L, 124L);
-        List<BufferPoolInfo> bufferPools = List.of(
-            new BufferPoolInfo("direct", 1L, 1024L, 2048L),
-            new BufferPoolInfo("mapped", 2L, 4096L, 3072L)
-        );
-        HeapSummary summary = new HeapSummary(
-            targetPid, heap, nonHeap, List.of(), List.of(),
-            new MemoryPressure(MemoryPressureLevel.NORMAL, 0.25, 0L, 0L, "Healthy"),
-            classLoading, bufferPools
-        );
+        List<BufferPoolInfo> bufferPools =
+                List.of(
+                        new BufferPoolInfo("direct", 1L, 1024L, 2048L),
+                        new BufferPoolInfo("mapped", 2L, 4096L, 3072L));
+        HeapSummary summary =
+                new HeapSummary(
+                        targetPid,
+                        heap,
+                        nonHeap,
+                        List.of(),
+                        List.of(),
+                        new MemoryPressure(MemoryPressureLevel.NORMAL, 0.25, 0L, 0L, "Healthy"),
+                        classLoading,
+                        bufferPools);
         MemoryCommand command = new MemoryCommand(mockAttachService);
         command.pid = targetPid;
         command.json = true;
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         PrintStream originalOut = System.out;
-        try (var clients = mockConstruction(MemoryMXBeanClient.class,
-                (client, context) -> when(client.getHeapSummary(anyLong())).thenReturn(summary))) {
+        try (var clients =
+                mockConstruction(
+                        MemoryMXBeanClient.class,
+                        (client, context) ->
+                                when(client.getHeapSummary(anyLong())).thenReturn(summary))) {
             System.setOut(new PrintStream(out));
             assertThat(command.call()).isZero();
             String output = out.toString().trim();
-            assertThat(output).contains("\"classLoading\":{\"loadedClassCount\":9876,\"totalLoadedClasses\":10000,\"unloadedClassCount\":124}");
-            assertThat(output).contains("\"bufferPools\":[{\"name\":\"direct\",\"count\":1,\"totalCapacityBytes\":1024,\"memoryUsedBytes\":2048},{\"name\":\"mapped\",\"count\":2,\"totalCapacityBytes\":4096,\"memoryUsedBytes\":3072}]");
+            assertThat(output)
+                    .contains(
+                            "\"classLoading\":{\"loadedClassCount\":9876,\"totalLoadedClasses\":10000,\"unloadedClassCount\":124}");
+            assertThat(output)
+                    .contains(
+                            "\"bufferPools\":[{\"name\":\"direct\",\"count\":1,\"totalCapacityBytes\":1024,\"memoryUsedBytes\":2048},{\"name\":\"mapped\",\"count\":2,\"totalCapacityBytes\":4096,\"memoryUsedBytes\":3072}]");
         } finally {
             System.setOut(originalOut);
         }

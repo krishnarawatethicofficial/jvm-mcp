@@ -3,30 +3,27 @@ package dev.jvmmcp;
 import dev.jvmmcp.core.attach.JvmAttachService;
 import dev.jvmmcp.core.model.JvmProcess;
 import dev.jvmmcp.core.util.SimpleJson;
-import picocli.CommandLine.Option;
+import java.util.List;
+import java.util.concurrent.Callable;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
-import java.util.List;
-import java.util.concurrent.Callable;
-
 @Command(
-    name = "list",
-    aliases = {"ps", "ls"},
-    description = "Lists all running Java Virtual Machines on the host",
-    mixinStandardHelpOptions = true
-)
+        name = "list",
+        aliases = {"ps", "ls"},
+        description = "Lists all running Java Virtual Machines on the host",
+        mixinStandardHelpOptions = true)
 public class ListCommand implements Callable<Integer> {
 
-    @Option(names = {"--json"}, description = "Output in JSON format")
+    @Option(
+            names = {"--json"},
+            description = "Output in JSON format")
     boolean json;
 
     private final JvmAttachService service;
-	@Option(
-    names = "--attachable",
-    description = "List only attachable JVM processes"
-)
-private boolean attachableOnly;
+
+    @Option(names = "--attachable", description = "List only attachable JVM processes")
+    private boolean attachableOnly;
 
     public ListCommand() {
         this.service = new JvmAttachService();
@@ -39,11 +36,9 @@ private boolean attachableOnly;
     @Override
     public Integer call() {
         List<JvmProcess> jvms = service.listJvms();
-		if (attachableOnly) {
-		jvms = jvms.stream()
-			.filter(JvmProcess::isAttachable)
-			.toList();
-}
+        if (attachableOnly) {
+            jvms = jvms.stream().filter(JvmProcess::isAttachable).toList();
+        }
 
         if (json) {
             System.out.println(SimpleJson.toJson(jvms));
@@ -55,7 +50,9 @@ private boolean attachableOnly;
             return 0;
         }
 
-        System.out.printf("%-10s %-16s %-30s %-30s %-10s%n", "PID", "FRAMEWORK", "MAIN CLASS", "DISPLAY NAME", "ATTACHABLE");
+        System.out.printf(
+                "%-10s %-16s %-30s %-30s %-10s%n",
+                "PID", "FRAMEWORK", "MAIN CLASS", "DISPLAY NAME", "ATTACHABLE");
         System.out.println("-".repeat(100));
 
         for (JvmProcess jvm : jvms) {
@@ -64,13 +61,12 @@ private boolean attachableOnly;
                 mainClass = mainClass.substring(0, 25) + "...";
             }
             System.out.printf(
-                "%-10d %-16s %-30s %-30s %-10s%n",
-                jvm.pid(),
-                jvm.framework().getDisplayName(),
-                mainClass,
-                jvm.displayName(),
-		jvm.isAttachable()
-            );
+                    "%-10d %-16s %-30s %-30s %-10s%n",
+                    jvm.pid(),
+                    jvm.framework().getDisplayName(),
+                    mainClass,
+                    jvm.displayName(),
+                    jvm.isAttachable());
         }
         return 0;
     }

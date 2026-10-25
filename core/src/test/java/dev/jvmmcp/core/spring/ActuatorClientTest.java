@@ -1,12 +1,9 @@
 package dev.jvmmcp.core.spring;
 
-import com.sun.net.httpserver.HttpServer;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
@@ -19,9 +16,11 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class ActuatorClientTest {
 
@@ -33,27 +32,31 @@ class ActuatorClientTest {
     @ParameterizedTest
     @ValueSource(strings = {"", "/", "//", "////", "/app", "/app/", "/app///"})
     void testBatchMetricsNormalizesTrailingSlashes(String suffix) {
-        String expectedPath = (suffix.startsWith("/app") ? "/app" : "")
-            + "/actuator/metrics/jvm.memory.used";
+        String expectedPath =
+                (suffix.startsWith("/app") ? "/app" : "") + "/actuator/metrics/jvm.memory.used";
         List<String> paths = new CopyOnWriteArrayList<>();
         server.removeContext("/actuator/metrics/jvm.memory.used");
-        server.createContext(expectedPath, exchange -> {
-            paths.add(exchange.getRequestURI().getRawPath());
-            byte[] response = "{\"measurements\":[{\"value\":12345}]}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
-            exchange.sendResponseHeaders(200, response.length);
-            try (OutputStream os = exchange.getResponseBody()) {
-                os.write(response);
-            }
-        });
+        server.createContext(
+                expectedPath,
+                exchange -> {
+                    paths.add(exchange.getRequestURI().getRawPath());
+                    byte[] response =
+                            "{\"measurements\":[{\"value\":12345}]}"
+                                    .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                    exchange.sendResponseHeaders(200, response.length);
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(response);
+                    }
+                });
 
         String baseUrl = "http://127.0.0.1:" + port + suffix;
         try (HttpClient httpClient = HttpClient.newHttpClient()) {
-            for (ActuatorClient batchClient : List.of(
-                new ActuatorClient(baseUrl, ActuatorAuth.NONE),
-                new ActuatorClient(baseUrl, ActuatorAuth.NONE, httpClient)
-            )) {
+            for (ActuatorClient batchClient :
+                    List.of(
+                            new ActuatorClient(baseUrl, ActuatorAuth.NONE),
+                            new ActuatorClient(baseUrl, ActuatorAuth.NONE, httpClient))) {
                 assertThat(batchClient.getMetricsBatch(List.of("jvm.memory.used")))
-                    .isEqualTo("{\"jvm.memory.used\": {\"measurements\":[{\"value\":12345}]}}");
+                        .isEqualTo("{\"jvm.memory.used\": {\"measurements\":[{\"value\":12345}]}}");
             }
         }
         assertThat(paths).containsExactly(expectedPath, expectedPath);
@@ -64,74 +67,92 @@ class ActuatorClientTest {
         server = HttpServer.create(new InetSocketAddress(0), 0);
         serverExecutor = Executors.newCachedThreadPool();
         server.setExecutor(serverExecutor);
-        
-        server.createContext("/actuator/health", exchange -> {
-            String response = "{\"status\":\"UP\"}";
-            exchange.sendResponseHeaders(200, response.length());
-            try (OutputStream os = exchange.getResponseBody()) {
-                os.write(response.getBytes());
-            }
-        });
-        
-        server.createContext("/actuator/metrics", exchange -> {
-            String response = "{\"names\":[\"jvm.memory.used\"]}";
-            exchange.sendResponseHeaders(200, response.length());
-            try (OutputStream os = exchange.getResponseBody()) {
-                os.write(response.getBytes());
-            }
-        });
 
-        server.createContext("/actuator/metrics/jvm.memory.used", exchange -> {
-            String response = "{\"name\":\"jvm.memory.used\",\"measurements\":[{\"value\":12345}]}";
-            exchange.sendResponseHeaders(200, response.length());
-            try (OutputStream os = exchange.getResponseBody()) {
-                os.write(response.getBytes());
-            }
-        });
+        server.createContext(
+                "/actuator/health",
+                exchange -> {
+                    String response = "{\"status\":\"UP\"}";
+                    exchange.sendResponseHeaders(200, response.length());
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(response.getBytes());
+                    }
+                });
 
-        server.createContext("/actuator/startup", exchange -> {
-            String response = "{\"timeline\":{\"startTime\":\"2026-10-09\"}}";
-            exchange.sendResponseHeaders(200, response.length());
-            try (OutputStream os = exchange.getResponseBody()) {
-                os.write(response.getBytes());
-            }
-        });
+        server.createContext(
+                "/actuator/metrics",
+                exchange -> {
+                    String response = "{\"names\":[\"jvm.memory.used\"]}";
+                    exchange.sendResponseHeaders(200, response.length());
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(response.getBytes());
+                    }
+                });
 
-        server.createContext("/actuator/health/503", exchange -> {
-            String response = "{\"status\":\"DOWN\"}";
-            exchange.sendResponseHeaders(503, response.length());
-            try (OutputStream os = exchange.getResponseBody()) {
-                os.write(response.getBytes());
-            }
-        });
+        server.createContext(
+                "/actuator/metrics/jvm.memory.used",
+                exchange -> {
+                    String response =
+                            "{\"name\":\"jvm.memory.used\",\"measurements\":[{\"value\":12345}]}";
+                    exchange.sendResponseHeaders(200, response.length());
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(response.getBytes());
+                    }
+                });
 
-        server.createContext("/actuator/broken", exchange -> {
-            String response = "Internal Server Error";
-            exchange.sendResponseHeaders(500, response.length());
-            try (OutputStream os = exchange.getResponseBody()) {
-                os.write(response.getBytes());
-            }
-        });
+        server.createContext(
+                "/actuator/startup",
+                exchange -> {
+                    String response = "{\"timeline\":{\"startTime\":\"2026-10-09\"}}";
+                    exchange.sendResponseHeaders(200, response.length());
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(response.getBytes());
+                    }
+                });
 
-        server.createContext("/actuator/metrics/jvm.memory.max", exchange -> {
-            String response = "{\"name\":\"jvm.memory.max\",\"measurements\":[{\"value\":54321}]}";
-            exchange.sendResponseHeaders(200, response.length());
-            try (OutputStream os = exchange.getResponseBody()) {
-                os.write(response.getBytes());
-            }
-        });
+        server.createContext(
+                "/actuator/health/503",
+                exchange -> {
+                    String response = "{\"status\":\"DOWN\"}";
+                    exchange.sendResponseHeaders(503, response.length());
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(response.getBytes());
+                    }
+                });
 
-        server.createContext("/actuator/tarpit", exchange -> {
-            // Write 31MB of spaces to trigger the 30MB limit
-            exchange.sendResponseHeaders(200, 31457280 + 1000);
-            try (OutputStream os = exchange.getResponseBody()) {
-                byte[] chunk = new byte[8192];
-                java.util.Arrays.fill(chunk, (byte) ' ');
-                for (int i = 0; i < 3900; i++) { // ~31.9 MB
-                    os.write(chunk);
-                }
-            }
-        });
+        server.createContext(
+                "/actuator/broken",
+                exchange -> {
+                    String response = "Internal Server Error";
+                    exchange.sendResponseHeaders(500, response.length());
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(response.getBytes());
+                    }
+                });
+
+        server.createContext(
+                "/actuator/metrics/jvm.memory.max",
+                exchange -> {
+                    String response =
+                            "{\"name\":\"jvm.memory.max\",\"measurements\":[{\"value\":54321}]}";
+                    exchange.sendResponseHeaders(200, response.length());
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(response.getBytes());
+                    }
+                });
+
+        server.createContext(
+                "/actuator/tarpit",
+                exchange -> {
+                    // Write 31MB of spaces to trigger the 30MB limit
+                    exchange.sendResponseHeaders(200, 31457280 + 1000);
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        byte[] chunk = new byte[8192];
+                        java.util.Arrays.fill(chunk, (byte) ' ');
+                        for (int i = 0; i < 3900; i++) { // ~31.9 MB
+                            os.write(chunk);
+                        }
+                    }
+                });
 
         server.start();
         port = server.getAddress().getPort();
@@ -157,7 +178,8 @@ class ActuatorClientTest {
     @Test
     void testGetMetricsBatch() {
         // Test CompletableFuture.allOf() handling multiple metrics concurrently
-        java.util.List<String> metrics = java.util.Arrays.asList("jvm.memory.used", "jvm.memory.max");
+        java.util.List<String> metrics =
+                java.util.Arrays.asList("jvm.memory.used", "jvm.memory.max");
         String res = client.getMetricsBatch(metrics);
         // It returns a JSON object combining them
         assertThat(res).contains("\"jvm.memory.used\"");
@@ -170,16 +192,16 @@ class ActuatorClientTest {
     void testLimitingStringHandlerCancelsTarpit() {
         // Assert that the 30MB limit causes an IOException rather than OOM
         assertThatThrownBy(() -> client.fetchEndpoint("/actuator/tarpit"))
-            .isInstanceOf(RuntimeException.class)
-            .hasMessageContaining("Content-Length 31458280 exceeds limit 31457280");
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Content-Length 31458280 exceeds limit 31457280");
     }
 
     @Test
     void testSemanticErrorMappers() {
         assertThatThrownBy(() -> client.fetchEndpoint("/actuator/notfound"))
-            .isInstanceOf(RuntimeException.class)
-            .hasMessageContaining("HTTP 404")
-            .hasMessageContaining("management.endpoints.web.exposure.include");
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("HTTP 404")
+                .hasMessageContaining("management.endpoints.web.exposure.include");
     }
 
     @Test
@@ -191,7 +213,8 @@ class ActuatorClientTest {
     @Test
     void testGetSpecificMetric() {
         String res = client.getMetric("jvm.memory.used");
-        assertThat(res).isEqualTo("{\"name\":\"jvm.memory.used\",\"measurements\":[{\"value\":12345}]}");
+        assertThat(res)
+                .isEqualTo("{\"name\":\"jvm.memory.used\",\"measurements\":[{\"value\":12345}]}");
     }
 
     @Test
@@ -209,25 +232,26 @@ class ActuatorClientTest {
     @Test
     void testErrorThrowsException() {
         assertThatThrownBy(() -> client.fetchEndpoint("/actuator/broken"))
-            .isInstanceOf(RuntimeException.class)
-            .hasMessageContaining("HTTP 500");
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("HTTP 500");
     }
 
     @Test
     void testSSRFProtectionRejectsNonLoopback() {
         assertThatThrownBy(() -> new ActuatorClient("http://google.com:8080", ActuatorAuth.NONE))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("SSRF Protection");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("SSRF Protection");
 
         assertThatThrownBy(() -> new ActuatorClient("http://192.168.1.1:8080", ActuatorAuth.NONE))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("SSRF Protection");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("SSRF Protection");
     }
 
     @Test
     void testInsecureAuthLogsWarningAndBuildsClient() {
         ActuatorAuth insecureAuth = ActuatorAuth.basic("admin", "admin", true);
-        ActuatorClient insecureClient = new ActuatorClient("http://127.0.0.1:" + port, insecureAuth);
+        ActuatorClient insecureClient =
+                new ActuatorClient("http://127.0.0.1:" + port, insecureAuth);
         assertThat(insecureClient).isNotNull();
     }
 
@@ -241,38 +265,49 @@ class ActuatorClientTest {
     @Test
     void testSSRFProtectionRejectsNonHttpSchemes() {
         assertThatThrownBy(() -> new ActuatorClient("file:///etc/passwd", ActuatorAuth.NONE))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("SSRF Protection: URL scheme must be http or https");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("SSRF Protection: URL scheme must be http or https");
 
         assertThatThrownBy(() -> new ActuatorClient("ftp://localhost:21", ActuatorAuth.NONE))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("SSRF Protection: URL scheme must be http or https");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("SSRF Protection: URL scheme must be http or https");
     }
 
     @Test
     void testPathTraversalRejectedInFetchEndpoint() {
         assertThatThrownBy(() -> client.fetchEndpoint("/actuator/../etc/passwd"))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("SSRF Protection: Path traversal");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("SSRF Protection: Path traversal");
 
         assertThatThrownBy(() -> client.fetchEndpoint("/actuator/..\\secret"))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("SSRF Protection: Path traversal");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("SSRF Protection: Path traversal");
     }
 
     @Test
     void testSSRFProtectionRejectsUserInfoQueryAndFragment() {
-        assertThatThrownBy(() -> new ActuatorClient("http://user:pass@localhost:8080", ActuatorAuth.NONE))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("SSRF Protection: UserInfo not permitted");
+        assertThatThrownBy(
+                        () ->
+                                new ActuatorClient(
+                                        "http://user:pass@localhost:8080", ActuatorAuth.NONE))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("SSRF Protection: UserInfo not permitted");
 
-        assertThatThrownBy(() -> new ActuatorClient("http://localhost:8080/actuator?admin=true", ActuatorAuth.NONE))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("SSRF Protection: Query parameters not permitted");
+        assertThatThrownBy(
+                        () ->
+                                new ActuatorClient(
+                                        "http://localhost:8080/actuator?admin=true",
+                                        ActuatorAuth.NONE))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("SSRF Protection: Query parameters not permitted");
 
-        assertThatThrownBy(() -> new ActuatorClient("http://localhost:8080/actuator#section", ActuatorAuth.NONE))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("SSRF Protection: URI fragments not permitted");
+        assertThatThrownBy(
+                        () ->
+                                new ActuatorClient(
+                                        "http://localhost:8080/actuator#section",
+                                        ActuatorAuth.NONE))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("SSRF Protection: URI fragments not permitted");
     }
 
     @Test
@@ -284,14 +319,16 @@ class ActuatorClientTest {
         }
         byte[] gzippedBytes = baos.toByteArray();
 
-        server.createContext("/actuator/compressed-health", exchange -> {
-            exchange.getResponseHeaders().set("Content-Type", "application/json");
-            exchange.getResponseHeaders().set("Content-Encoding", "gzip");
-            exchange.sendResponseHeaders(200, gzippedBytes.length);
-            try (OutputStream os = exchange.getResponseBody()) {
-                os.write(gzippedBytes);
-            }
-        });
+        server.createContext(
+                "/actuator/compressed-health",
+                exchange -> {
+                    exchange.getResponseHeaders().set("Content-Type", "application/json");
+                    exchange.getResponseHeaders().set("Content-Encoding", "gzip");
+                    exchange.sendResponseHeaders(200, gzippedBytes.length);
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(gzippedBytes);
+                    }
+                });
 
         String result = client.fetchEndpoint("/actuator/compressed-health");
         assertThat(result).isEqualTo(json);
@@ -306,23 +343,27 @@ class ActuatorClientTest {
         CountDownLatch requestReceivedLatch = new CountDownLatch(1);
         String stalledContext = "/actuator/metrics/stalled.one";
 
-        server.createContext(stalledContext, exchange -> {
-            requestReceivedLatch.countDown();
-            try {
-                releaseLatch.await(5, TimeUnit.SECONDS);
-            } catch (InterruptedException ignored) {
-                Thread.currentThread().interrupt();
-            }
-            byte[] response = "{\"value\":999}".getBytes(StandardCharsets.UTF_8);
-            exchange.sendResponseHeaders(200, response.length);
-            try (OutputStream os = exchange.getResponseBody()) {
-                os.write(response);
-            }
-        });
+        server.createContext(
+                stalledContext,
+                exchange -> {
+                    requestReceivedLatch.countDown();
+                    try {
+                        releaseLatch.await(5, TimeUnit.SECONDS);
+                    } catch (InterruptedException ignored) {
+                        Thread.currentThread().interrupt();
+                    }
+                    byte[] response = "{\"value\":999}".getBytes(StandardCharsets.UTF_8);
+                    exchange.sendResponseHeaders(200, response.length);
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(response);
+                    }
+                });
 
         try {
             long start = System.nanoTime();
-            String res = client.getMetricsBatch(List.of("jvm.memory.used", "stalled.one"), Duration.ofMillis(500));
+            String res =
+                    client.getMetricsBatch(
+                            List.of("jvm.memory.used", "stalled.one"), Duration.ofMillis(500));
             long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
 
             assertThat(elapsedMillis).isLessThan(4000);
@@ -342,35 +383,41 @@ class ActuatorClientTest {
         String stalledContext1 = "/actuator/metrics/stalled.alpha";
         String stalledContext2 = "/actuator/metrics/stalled.beta";
 
-        server.createContext(stalledContext1, exchange -> {
-            try {
-                releaseLatch.await(5, TimeUnit.SECONDS);
-            } catch (InterruptedException ignored) {
-                Thread.currentThread().interrupt();
-            }
-            byte[] response = "{\"value\":1}".getBytes(StandardCharsets.UTF_8);
-            exchange.sendResponseHeaders(200, response.length);
-            try (OutputStream os = exchange.getResponseBody()) {
-                os.write(response);
-            }
-        });
+        server.createContext(
+                stalledContext1,
+                exchange -> {
+                    try {
+                        releaseLatch.await(5, TimeUnit.SECONDS);
+                    } catch (InterruptedException ignored) {
+                        Thread.currentThread().interrupt();
+                    }
+                    byte[] response = "{\"value\":1}".getBytes(StandardCharsets.UTF_8);
+                    exchange.sendResponseHeaders(200, response.length);
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(response);
+                    }
+                });
 
-        server.createContext(stalledContext2, exchange -> {
-            try {
-                releaseLatch.await(5, TimeUnit.SECONDS);
-            } catch (InterruptedException ignored) {
-                Thread.currentThread().interrupt();
-            }
-            byte[] response = "{\"value\":2}".getBytes(StandardCharsets.UTF_8);
-            exchange.sendResponseHeaders(200, response.length);
-            try (OutputStream os = exchange.getResponseBody()) {
-                os.write(response);
-            }
-        });
+        server.createContext(
+                stalledContext2,
+                exchange -> {
+                    try {
+                        releaseLatch.await(5, TimeUnit.SECONDS);
+                    } catch (InterruptedException ignored) {
+                        Thread.currentThread().interrupt();
+                    }
+                    byte[] response = "{\"value\":2}".getBytes(StandardCharsets.UTF_8);
+                    exchange.sendResponseHeaders(200, response.length);
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(response);
+                    }
+                });
 
         try {
             long start = System.nanoTime();
-            String res = client.getMetricsBatch(List.of("stalled.alpha", "stalled.beta"), Duration.ofMillis(200));
+            String res =
+                    client.getMetricsBatch(
+                            List.of("stalled.alpha", "stalled.beta"), Duration.ofMillis(200));
             long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
 
             assertThat(elapsedMillis).isLessThan(3000);
@@ -390,18 +437,20 @@ class ActuatorClientTest {
         String rawMetricName = "stalled\"with\"quotes";
         String stalledContext = "/actuator/metrics/" + rawMetricName;
 
-        server.createContext(stalledContext, exchange -> {
-            try {
-                releaseLatch.await(5, TimeUnit.SECONDS);
-            } catch (InterruptedException ignored) {
-                Thread.currentThread().interrupt();
-            }
-            byte[] response = "{\"value\":1}".getBytes(StandardCharsets.UTF_8);
-            exchange.sendResponseHeaders(200, response.length);
-            try (OutputStream os = exchange.getResponseBody()) {
-                os.write(response);
-            }
-        });
+        server.createContext(
+                stalledContext,
+                exchange -> {
+                    try {
+                        releaseLatch.await(5, TimeUnit.SECONDS);
+                    } catch (InterruptedException ignored) {
+                        Thread.currentThread().interrupt();
+                    }
+                    byte[] response = "{\"value\":1}".getBytes(StandardCharsets.UTF_8);
+                    exchange.sendResponseHeaders(200, response.length);
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(response);
+                    }
+                });
 
         try {
             String res = client.getMetricsBatch(List.of(rawMetricName), Duration.ofMillis(200));
@@ -414,4 +463,3 @@ class ActuatorClientTest {
         }
     }
 }
-

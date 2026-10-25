@@ -1,13 +1,12 @@
 package dev.jvmmcp.core.model;
 
-import dev.jvmmcp.core.util.SimpleJson;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
 
+import dev.jvmmcp.core.util.SimpleJson;
 import java.util.List;
 import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 @DisplayName("ClassLoadingInfo Model & HeapSummary Serialization Tests")
 class ClassLoadingModelTest {
@@ -23,10 +22,12 @@ class ClassLoadingModelTest {
     }
 
     @Test
-    @DisplayName("HeapSummary 6-argument constructor defaults classLoading to null for backward compatibility")
+    @DisplayName(
+            "HeapSummary 6-argument constructor defaults classLoading to null for backward compatibility")
     void shouldMaintainHeapSummaryBackwardCompatibility() {
         MemoryUsageInfo usage = new MemoryUsageInfo(100, 200, 300, 400, 50.0, 200.0, 400.0);
-        MemoryPressure pressure = new MemoryPressure(MemoryPressureLevel.NORMAL, 0.5, 0L, 0L, "Healthy");
+        MemoryPressure pressure =
+                new MemoryPressure(MemoryPressureLevel.NORMAL, 0.5, 0L, 0L, "Healthy");
         HeapSummary summary = new HeapSummary(100L, usage, usage, List.of(), List.of(), pressure);
 
         assertThat(summary.pid()).isEqualTo(100L);
@@ -40,10 +41,12 @@ class ClassLoadingModelTest {
     @DisplayName("HeapSummary retains ClassLoadingInfo when provided via 7-argument constructor")
     void shouldRetainClassLoadingInfoInHeapSummary() {
         MemoryUsageInfo usage = new MemoryUsageInfo(100, 200, 300, 400, 50.0, 200.0, 400.0);
-        MemoryPressure pressure = new MemoryPressure(MemoryPressureLevel.NORMAL, 0.5, 0L, 0L, "Healthy");
+        MemoryPressure pressure =
+                new MemoryPressure(MemoryPressureLevel.NORMAL, 0.5, 0L, 0L, "Healthy");
         ClassLoadingInfo classLoading = new ClassLoadingInfo(1000L, 1200L, 200L);
 
-        HeapSummary summary = new HeapSummary(100L, usage, usage, List.of(), List.of(), pressure, classLoading);
+        HeapSummary summary =
+                new HeapSummary(100L, usage, usage, List.of(), List.of(), pressure, classLoading);
 
         assertThat(summary.classLoading()).isNotNull();
         assertThat(summary.classLoading().loadedClassCount()).isEqualTo(1000L);
@@ -55,10 +58,12 @@ class ClassLoadingModelTest {
     @DisplayName("SimpleJson serializes HeapSummary with classLoading correctly")
     void shouldSerializeHeapSummaryWithClassLoading() {
         MemoryUsageInfo usage = new MemoryUsageInfo(100, 200, 300, 400, 50.0, 200.0, 400.0);
-        MemoryPressure pressure = new MemoryPressure(MemoryPressureLevel.NORMAL, 0.5, 0L, 0L, "Healthy");
+        MemoryPressure pressure =
+                new MemoryPressure(MemoryPressureLevel.NORMAL, 0.5, 0L, 0L, "Healthy");
         ClassLoadingInfo classLoading = new ClassLoadingInfo(5000L, 6000L, 1000L);
 
-        HeapSummary summary = new HeapSummary(100L, usage, usage, List.of(), List.of(), pressure, classLoading);
+        HeapSummary summary =
+                new HeapSummary(100L, usage, usage, List.of(), List.of(), pressure, classLoading);
 
         String json = SimpleJson.toJson(summary);
         assertThat(json).contains("\"classLoading\":{");
@@ -71,16 +76,20 @@ class ClassLoadingModelTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> classLoadingMap = (Map<String, Object>) parsed.get("classLoading");
         assertThat(((Number) classLoadingMap.get("loadedClassCount")).longValue()).isEqualTo(5000L);
-        assertThat(((Number) classLoadingMap.get("totalLoadedClasses")).longValue()).isEqualTo(6000L);
-        assertThat(((Number) classLoadingMap.get("unloadedClassCount")).longValue()).isEqualTo(1000L);
+        assertThat(((Number) classLoadingMap.get("totalLoadedClasses")).longValue())
+                .isEqualTo(6000L);
+        assertThat(((Number) classLoadingMap.get("unloadedClassCount")).longValue())
+                .isEqualTo(1000L);
     }
 
     @Test
     @DisplayName("SimpleJson serializes null classLoading when absent")
     void shouldSerializeHeapSummaryWithNullClassLoading() {
         MemoryUsageInfo usage = new MemoryUsageInfo(100, 200, 300, 400, 50.0, 200.0, 400.0);
-        MemoryPressure pressure = new MemoryPressure(MemoryPressureLevel.NORMAL, 0.5, 0L, 0L, "Healthy");
-        HeapSummary summary = new HeapSummary(100L, usage, usage, List.of(), List.of(), pressure, null);
+        MemoryPressure pressure =
+                new MemoryPressure(MemoryPressureLevel.NORMAL, 0.5, 0L, 0L, "Healthy");
+        HeapSummary summary =
+                new HeapSummary(100L, usage, usage, List.of(), List.of(), pressure, null);
 
         String json = SimpleJson.toJson(summary);
         assertThat(json).contains("\"classLoading\":null");

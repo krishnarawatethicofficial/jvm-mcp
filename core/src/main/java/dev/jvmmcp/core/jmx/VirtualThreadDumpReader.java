@@ -4,18 +4,17 @@ import dev.jvmmcp.core.model.ThreadDetail;
 import dev.jvmmcp.core.model.ThreadStackFrame;
 import dev.jvmmcp.core.model.VirtualThreadSummary;
 import dev.jvmmcp.core.util.SimpleJson;
-
-import javax.management.MBeanServerConnection;
-import javax.management.ObjectName;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import javax.management.MBeanServerConnection;
+import javax.management.ObjectName;
 
 /**
- * Diagnostic reader capturing and parsing HotSpot virtual thread dumps via the
- * {@code com.sun.management:type=DiagnosticCommand} MBean ({@code Thread.dump_to_file -format=json}).
+ * Diagnostic reader capturing and parsing HotSpot virtual thread dumps via the {@code
+ * com.sun.management:type=DiagnosticCommand} MBean ({@code Thread.dump_to_file -format=json}).
  *
  * <p>HotSpot Java 21+ records virtual threads inside thread containers within the JSON thread dump.
  * Platform threads are distinguished from virtual threads using the set of live platform thread IDs
@@ -23,7 +22,8 @@ import java.util.*;
  */
 public class VirtualThreadDumpReader {
 
-    private static final String DIAGNOSTIC_COMMAND_MBEAN = "com.sun.management:type=DiagnosticCommand";
+    private static final String DIAGNOSTIC_COMMAND_MBEAN =
+            "com.sun.management:type=DiagnosticCommand";
     private static final String THREAD_DUMP_OPERATION = "threadDumpToFile";
 
     private final MBeanServerConnection mbsc;
@@ -39,9 +39,10 @@ public class VirtualThreadDumpReader {
      * Reads a diagnostic snapshot and computes the {@link VirtualThreadSummary}.
      *
      * @param platformThreadIds live platform thread IDs from ThreadMXBean, used to disambiguate
-     *                          platform threads from virtual threads
-     * @return present {@link VirtualThreadSummary} if supported and readable; {@link Optional#empty()}
-     *         if unsupported (e.g. pre-Java 21, non-HotSpot), permission denied, or reading failed
+     *     platform threads from virtual threads
+     * @return present {@link VirtualThreadSummary} if supported and readable; {@link
+     *     Optional#empty()} if unsupported (e.g. pre-Java 21, non-HotSpot), permission denied, or
+     *     reading failed
      */
     public Optional<VirtualThreadSummary> readVirtualThreadSummary(long[] platformThreadIds) {
         Optional<Map<String, Object>> dumpJsonOpt = readDumpJson();
@@ -56,7 +57,8 @@ public class VirtualThreadDumpReader {
      * Reads a diagnostic snapshot and returns the list of observed virtual {@link ThreadDetail}s.
      *
      * @param platformThreadIds live platform thread IDs from ThreadMXBean
-     * @return present list of virtual thread details, or {@link Optional#empty()} if unsupported or reading failed
+     * @return present list of virtual thread details, or {@link Optional#empty()} if unsupported or
+     *     reading failed
      */
     public Optional<List<ThreadDetail>> readVirtualThreads(long[] platformThreadIds) {
         Optional<Map<String, Object>> dumpJsonOpt = readDumpJson();
@@ -68,8 +70,8 @@ public class VirtualThreadDumpReader {
     }
 
     /**
-     * Executes {@code Thread.dump_to_file -format=json} to a temporary file, parses the JSON payload,
-     * and guarantees deterministic deletion of the temporary file on success and failure.
+     * Executes {@code Thread.dump_to_file -format=json} to a temporary file, parses the JSON
+     * payload, and guarantees deterministic deletion of the temporary file on success and failure.
      */
     Optional<Map<String, Object>> readDumpJson() {
         Path tempFile = null;
@@ -78,11 +80,10 @@ public class VirtualThreadDumpReader {
             String pathString = tempFile.toAbsolutePath().toString();
 
             mbsc.invoke(
-                new ObjectName(DIAGNOSTIC_COMMAND_MBEAN),
-                THREAD_DUMP_OPERATION,
-                new Object[]{new String[]{"-format=json", "-overwrite", pathString}},
-                new String[]{String[].class.getName()}
-            );
+                    new ObjectName(DIAGNOSTIC_COMMAND_MBEAN),
+                    THREAD_DUMP_OPERATION,
+                    new Object[] {new String[] {"-format=json", "-overwrite", pathString}},
+                    new String[] {String[].class.getName()});
 
             if (!Files.exists(tempFile)) {
                 return Optional.empty();
@@ -114,7 +115,8 @@ public class VirtualThreadDumpReader {
      * @param platformThreadIds set of live platform thread IDs
      * @return summary of virtual threads, or {@code null} if the dump payload is invalid
      */
-    public VirtualThreadSummary parseVirtualThreadSummary(Map<String, Object> dumpJson, Set<Long> platformThreadIds) {
+    public VirtualThreadSummary parseVirtualThreadSummary(
+            Map<String, Object> dumpJson, Set<Long> platformThreadIds) {
         if (dumpJson == null) {
             return null;
         }
@@ -153,13 +155,15 @@ public class VirtualThreadDumpReader {
     }
 
     /**
-     * Parses the list of virtual {@link ThreadDetail} objects from a pre-parsed thread dump JSON map.
+     * Parses the list of virtual {@link ThreadDetail} objects from a pre-parsed thread dump JSON
+     * map.
      *
      * @param dumpJson parsed JSON map
      * @param platformThreadIds set of live platform thread IDs
      * @return list of virtual thread details, or {@code null} if the dump payload is invalid
      */
-    public List<ThreadDetail> parseVirtualThreads(Map<String, Object> dumpJson, Set<Long> platformThreadIds) {
+    public List<ThreadDetail> parseVirtualThreads(
+            Map<String, Object> dumpJson, Set<Long> platformThreadIds) {
         if (dumpJson == null) {
             return null;
         }
@@ -193,7 +197,10 @@ public class VirtualThreadDumpReader {
                 }
                 if (isVirtualThread(tid, threadMap, platformThreadIds)) {
                     seenVirtualThreadIds.add(tid);
-                    String name = threadMap.get("name") != null ? threadMap.get("name").toString() : "VirtualThread-" + tid;
+                    String name =
+                            threadMap.get("name") != null
+                                    ? threadMap.get("name").toString()
+                                    : "VirtualThread-" + tid;
                     List<ThreadStackFrame> stackFrames = new ArrayList<>();
                     Object stackObj = threadMap.get("stack");
                     if (stackObj instanceof List<?> stackList) {
@@ -203,21 +210,21 @@ public class VirtualThreadDumpReader {
                             }
                         }
                     }
-                    virtualThreads.add(new ThreadDetail(
-                        tid,
-                        name,
-                        "VIRTUAL",
-                        null,
-                        null,
-                        null,
-                        0L,
-                        0L,
-                        0L,
-                        0L,
-                        false,
-                        false,
-                        stackFrames
-                    ));
+                    virtualThreads.add(
+                            new ThreadDetail(
+                                    tid,
+                                    name,
+                                    "VIRTUAL",
+                                    null,
+                                    null,
+                                    null,
+                                    0L,
+                                    0L,
+                                    0L,
+                                    0L,
+                                    false,
+                                    false,
+                                    stackFrames));
                 }
             }
         }

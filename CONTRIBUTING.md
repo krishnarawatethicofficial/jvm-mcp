@@ -34,10 +34,12 @@ Before writing code, please review these foundational design decisions:
 ## 2. Local Development & Setup
 
 ### Prerequisites
+
 * **JDK 21+** (Temurin or OpenJDK).
 * Git.
 
 ### Building the Monorepo
+
 ```bash
 # Build all modules, run surefire tests, and verify JaCoCo / PIT quality gates
 ./mvnw clean verify
@@ -45,6 +47,24 @@ Before writing code, please review these foundational design decisions:
 # Run CLI locally
 java -jar mcp-server/target/jvm-mcp-server-1.1.1.jar list
 ```
+
+### Code Formatting
+
+Java source files use Google Java Format with the AOSP style. Spotless checks formatting during Maven verification.
+
+Apply formatting before committing:
+
+```bash
+./mvnw spotless:apply
+```
+
+Check formatting without modifying files:
+
+```bash
+./mvnw spotless:check
+```
+
+On Windows, use `mvnw.cmd` instead of `./mvnw`.
 
 ---
 
@@ -72,13 +92,16 @@ java -jar mcp-server/target/jvm-mcp-server-1.1.1.jar list
 ## 4. Commit & Pull Request Guidelines
 
 ### Commit Format (Conventional Commits)
+
 Use atomic commits with descriptive, human-written messages explaining the **why**:
+
 * `feat(heap): add live heap histogram reader via attach api`
 * `fix(jmx): resolve memory leak when detaching from target vm`
 * `docs(readme): clarify docker permission constraints`
 * `test(threads): add deadlock reproduction integration test`
 
 ### Pull Request Rules
+
 * Keep PRs focused on a single concern.
 * Ensure `./mvnw clean verify` passes locally before submitting.
 * Write a concise summary explaining **what** changed and **why** (avoid AI-generated filler paragraphs).

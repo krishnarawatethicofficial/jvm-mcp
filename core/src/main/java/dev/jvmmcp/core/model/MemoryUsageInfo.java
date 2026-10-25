@@ -5,20 +5,19 @@ import java.lang.management.MemoryUsage;
 /**
  * Immutable memory usage snapshot formatted for programmatic and LLM consumption.
  *
- * <p>When JMX reports no upper bound (a negative {@code max}, e.g. non-heap memory or an
- * unbounded pool such as Metaspace), {@code maxMb} and {@code usedPercent} carry the
- * {@code -1.0} sentinel instead of passing {@code committedBytes} off as the
- * quota. A {@code max} of exactly zero is a real bound and keeps numeric values.
+ * <p>When JMX reports no upper bound (a negative {@code max}, e.g. non-heap memory or an unbounded
+ * pool such as Metaspace), {@code maxMb} and {@code usedPercent} carry the {@code -1.0} sentinel
+ * instead of passing {@code committedBytes} off as the quota. A {@code max} of exactly zero is a
+ * real bound and keeps numeric values.
  */
 public record MemoryUsageInfo(
-    long initBytes,
-    long usedBytes,
-    long committedBytes,
-    long maxBytes,
-    double usedPercent,
-    double usedMb,
-    double maxMb
-) {
+        long initBytes,
+        long usedBytes,
+        long committedBytes,
+        long maxBytes,
+        double usedPercent,
+        double usedMb,
+        double maxMb) {
     /** Reported for {@code maxMb} / {@code usedPercent} when the JVM exposes no upper bound. */
     private static final double UNKNOWN_SENTINEL = -1.0;
 
@@ -46,13 +45,12 @@ public record MemoryUsageInfo(
         }
 
         return new MemoryUsageInfo(
-            init,
-            used,
-            committed,
-            max,
-            Math.round(usedPercent * 100.0) / 100.0,
-            Math.round(usedMb * 100.0) / 100.0,
-            Math.round(maxMb * 100.0) / 100.0
-        );
+                init,
+                used,
+                committed,
+                max,
+                Math.round(usedPercent * 100.0) / 100.0,
+                Math.round(usedMb * 100.0) / 100.0,
+                Math.round(maxMb * 100.0) / 100.0);
     }
 }

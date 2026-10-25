@@ -1,11 +1,8 @@
 package dev.jvmmcp.core.spring;
 
-import com.sun.net.httpserver.HttpServer;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
 
+import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
@@ -14,8 +11,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 class ActuatorProbeAuthTest {
 
@@ -29,18 +28,23 @@ class ActuatorProbeAuthTest {
     @BeforeEach
     void startServer() throws IOException {
         server = HttpServer.create(new InetSocketAddress(0), 0);
-        server.createContext("/", exchange -> {
-            requestedPaths.add(exchange.getRequestURI().getPath());
-            lastAuthHeader.set(exchange.getRequestHeaders().getFirst("Authorization"));
+        server.createContext(
+                "/",
+                exchange -> {
+                    requestedPaths.add(exchange.getRequestURI().getPath());
+                    lastAuthHeader.set(exchange.getRequestHeaders().getFirst("Authorization"));
 
-            String path = exchange.getRequestURI().getPath();
-            boolean servesBeans = path.equals("/actuator/beans") || path.equals("/management/beans");
-            byte[] body = (servesBeans ? BEANS_JSON : "not found").getBytes(StandardCharsets.UTF_8);
-            exchange.sendResponseHeaders(servesBeans ? 200 : 404, body.length);
-            try (java.io.OutputStream os = exchange.getResponseBody()) {
-                os.write(body);
-            }
-        });
+                    String path = exchange.getRequestURI().getPath();
+                    boolean servesBeans =
+                            path.equals("/actuator/beans") || path.equals("/management/beans");
+                    byte[] body =
+                            (servesBeans ? BEANS_JSON : "not found")
+                                    .getBytes(StandardCharsets.UTF_8);
+                    exchange.sendResponseHeaders(servesBeans ? 200 : 404, body.length);
+                    try (java.io.OutputStream os = exchange.getResponseBody()) {
+                        os.write(body);
+                    }
+                });
         server.start();
         baseUrl = "http://127.0.0.1:" + server.getAddress().getPort();
     }
@@ -57,8 +61,10 @@ class ActuatorProbeAuthTest {
 
         Optional<String> json = probe.fetchFromUrl(baseUrl);
 
-        String expected = "Basic " + Base64.getEncoder()
-            .encodeToString("admin:s3cret".getBytes(StandardCharsets.UTF_8));
+        String expected =
+                "Basic "
+                        + Base64.getEncoder()
+                                .encodeToString("admin:s3cret".getBytes(StandardCharsets.UTF_8));
         assertThat(json).contains(BEANS_JSON);
         assertThat(lastAuthHeader.get()).isEqualTo(expected);
     }
@@ -112,13 +118,14 @@ class ActuatorProbeAuthTest {
     @DisplayName("Base URL tries /actuator/beans first, then /beans")
     void shouldBuildCandidateUrls() {
         assertThat(ActuatorProbe.candidateBeansUrls("https://host:8443/"))
-            .containsExactly("https://host:8443/actuator/beans", "https://host:8443/beans");
+                .containsExactly("https://host:8443/actuator/beans", "https://host:8443/beans");
         assertThat(ActuatorProbe.candidateBeansUrls("https://host/management/beans"))
-            .containsExactly("https://host/management/beans");
+                .containsExactly("https://host/management/beans");
     }
 
     @Test
-    @DisplayName("Auth validation rejects Basic + Bearer together and half-filled Basic credentials")
+    @DisplayName(
+            "Auth validation rejects Basic + Bearer together and half-filled Basic credentials")
     void shouldValidateCombinations() {
         assertThat(new ActuatorAuth("u", "p", "tok", false).validate()).isPresent();
         assertThat(new ActuatorAuth("u", null, null, false).validate()).isPresent();
@@ -132,8 +139,8 @@ class ActuatorProbeAuthTest {
     @DisplayName("toString never leaks the password or token")
     void shouldNotLeakSecretsInToString() {
         assertThat(ActuatorAuth.basic("admin", "s3cret", false).toString())
-            .doesNotContain("s3cret");
+                .doesNotContain("s3cret");
         assertThat(ActuatorAuth.bearer("supersecrettoken", false).toString())
-            .doesNotContain("supersecrettoken");
+                .doesNotContain("supersecrettoken");
     }
 }

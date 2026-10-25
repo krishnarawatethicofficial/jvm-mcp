@@ -1,10 +1,9 @@
 package dev.jvmmcp.server.transport;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import dev.jvmmcp.server.protocol.McpDispatcher;
 import dev.jvmmcp.server.tool.ToolRegistry;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -13,8 +12,8 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 class McpTransportTest {
 
@@ -41,7 +40,10 @@ class McpTransportTest {
         McpDispatcher dispatcher = new McpDispatcher(registry);
         McpTransport transport = new McpTransport(dispatcher);
 
-        ByteArrayInputStream in = new ByteArrayInputStream("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}\n".getBytes(StandardCharsets.UTF_8));
+        ByteArrayInputStream in =
+                new ByteArrayInputStream(
+                        "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}\n"
+                                .getBytes(StandardCharsets.UTF_8));
         PrintStream originalOut = System.out;
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try {
@@ -58,15 +60,19 @@ class McpTransportTest {
     @DisplayName("handles exception in worker thread when dispatcher throws unexpected error")
     void testWorkerThreadCatchesException() {
         ToolRegistry registry = new ToolRegistry();
-        McpDispatcher dispatcher = new McpDispatcher(registry) {
-            @Override
-            public Optional<Map<String, Object>> dispatch(String line) {
-                throw new RuntimeException("Unexpected dispatcher fault");
-            }
-        };
+        McpDispatcher dispatcher =
+                new McpDispatcher(registry) {
+                    @Override
+                    public Optional<Map<String, Object>> dispatch(String line) {
+                        throw new RuntimeException("Unexpected dispatcher fault");
+                    }
+                };
         McpTransport transport = new McpTransport(dispatcher);
 
-        ByteArrayInputStream in = new ByteArrayInputStream("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}\n".getBytes(StandardCharsets.UTF_8));
+        ByteArrayInputStream in =
+                new ByteArrayInputStream(
+                        "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}\n"
+                                .getBytes(StandardCharsets.UTF_8));
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
         int exitCode = transport.start(in, (java.io.OutputStream) out);
@@ -81,12 +87,13 @@ class McpTransportTest {
         McpDispatcher dispatcher = new McpDispatcher(registry);
         McpTransport transport = new McpTransport(dispatcher);
 
-        InputStream failingIn = new InputStream() {
-            @Override
-            public int read() throws IOException {
-                throw new IOException("Stream failed fatally");
-            }
-        };
+        InputStream failingIn =
+                new InputStream() {
+                    @Override
+                    public int read() throws IOException {
+                        throw new IOException("Stream failed fatally");
+                    }
+                };
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         int exitCode = transport.start(failingIn, out);
@@ -115,7 +122,8 @@ class McpTransportTest {
 
         // Build a line exceeding 4MB
         String largePadding = "a".repeat(4 * 1024 * 1024 + 10);
-        ByteArrayInputStream in = new ByteArrayInputStream((largePadding + "\n").getBytes(StandardCharsets.UTF_8));
+        ByteArrayInputStream in =
+                new ByteArrayInputStream((largePadding + "\n").getBytes(StandardCharsets.UTF_8));
         ByteArrayOutputStream out = new ByteArrayOutputStream();
 
         int exitCode = transport.start(in, out);
@@ -130,13 +138,16 @@ class McpTransportTest {
         McpDispatcher dispatcher = new McpDispatcher(registry);
         McpTransport transport = new McpTransport(dispatcher);
 
-        ByteArrayInputStream in = new ByteArrayInputStream("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}\n".getBytes(StandardCharsets.UTF_8));
+        ByteArrayInputStream in =
+                new ByteArrayInputStream(
+                        "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}\n"
+                                .getBytes(StandardCharsets.UTF_8));
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PrintStream isoStream = new PrintStream(out, true, java.nio.charset.StandardCharsets.ISO_8859_1);
+        PrintStream isoStream =
+                new PrintStream(out, true, java.nio.charset.StandardCharsets.ISO_8859_1);
 
         int exitCode = transport.start(in, (java.io.OutputStream) isoStream);
         assertThat(exitCode).isZero();
         assertThat(out.toString(StandardCharsets.UTF_8)).contains("\"result\":{}");
     }
 }
-

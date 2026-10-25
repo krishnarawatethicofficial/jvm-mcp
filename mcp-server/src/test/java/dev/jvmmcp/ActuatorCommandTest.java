@@ -1,14 +1,12 @@
 package dev.jvmmcp;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import com.sun.net.httpserver.HttpServer;
 import dev.jvmmcp.core.spring.ActuatorAuth;
 import dev.jvmmcp.core.spring.ActuatorClient;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import picocli.CommandLine;
-
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
@@ -16,10 +14,11 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import picocli.CommandLine;
 
 class ActuatorCommandTest {
 
@@ -29,54 +28,80 @@ class ActuatorCommandTest {
     @BeforeAll
     static void setUpServer() throws Exception {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        server.createContext("/actuator/health", exchange -> {
-            byte[] resp = "{\"status\":\"UP\"}".getBytes(StandardCharsets.UTF_8);
-            exchange.getResponseHeaders().set("Content-Type", "application/vnd.spring-boot.actuator.v3+json");
-            exchange.sendResponseHeaders(200, resp.length);
-            try (OutputStream os = exchange.getResponseBody()) {
-                os.write(resp);
-            }
-        });
-        server.createContext("/actuator/metrics", exchange -> {
-            byte[] resp = "{\"names\":[\"jvm.memory.used\",\"jvm.threads.live\"]}".getBytes(StandardCharsets.UTF_8);
-            exchange.getResponseHeaders().set("Content-Type", "application/vnd.spring-boot.actuator.v3+json");
-            exchange.sendResponseHeaders(200, resp.length);
-            try (OutputStream os = exchange.getResponseBody()) {
-                os.write(resp);
-            }
-        });
-        server.createContext("/actuator/metrics/jvm.memory.used", exchange -> {
-            byte[] resp = "{\"name\":\"jvm.memory.used\",\"measurements\":[{\"value\":100}]}".getBytes(StandardCharsets.UTF_8);
-            exchange.getResponseHeaders().set("Content-Type", "application/vnd.spring-boot.actuator.v3+json");
-            exchange.sendResponseHeaders(200, resp.length);
-            try (OutputStream os = exchange.getResponseBody()) {
-                os.write(resp);
-            }
-        });
-        server.createContext("/actuator/metrics/jvm.threads.live", exchange -> {
-            byte[] resp = "{\"name\":\"jvm.threads.live\",\"measurements\":[{\"value\":10}]}".getBytes(StandardCharsets.UTF_8);
-            exchange.getResponseHeaders().set("Content-Type", "application/vnd.spring-boot.actuator.v3+json");
-            exchange.sendResponseHeaders(200, resp.length);
-            try (OutputStream os = exchange.getResponseBody()) {
-                os.write(resp);
-            }
-        });
-        server.createContext("/actuator/startup", exchange -> {
-            byte[] resp = "{\"springBootVersion\":\"3.3.0\"}".getBytes(StandardCharsets.UTF_8);
-            exchange.getResponseHeaders().set("Content-Type", "application/vnd.spring-boot.actuator.v3+json");
-            exchange.sendResponseHeaders(200, resp.length);
-            try (OutputStream os = exchange.getResponseBody()) {
-                os.write(resp);
-            }
-        });
-        server.createContext("/actuator/info", exchange -> {
-            byte[] resp = "{\"app\":{\"version\":\"1.0\"}}".getBytes(StandardCharsets.UTF_8);
-            exchange.getResponseHeaders().set("Content-Type", "application/vnd.spring-boot.actuator.v3+json");
-            exchange.sendResponseHeaders(200, resp.length);
-            try (OutputStream os = exchange.getResponseBody()) {
-                os.write(resp);
-            }
-        });
+        server.createContext(
+                "/actuator/health",
+                exchange -> {
+                    byte[] resp = "{\"status\":\"UP\"}".getBytes(StandardCharsets.UTF_8);
+                    exchange.getResponseHeaders()
+                            .set("Content-Type", "application/vnd.spring-boot.actuator.v3+json");
+                    exchange.sendResponseHeaders(200, resp.length);
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(resp);
+                    }
+                });
+        server.createContext(
+                "/actuator/metrics",
+                exchange -> {
+                    byte[] resp =
+                            "{\"names\":[\"jvm.memory.used\",\"jvm.threads.live\"]}"
+                                    .getBytes(StandardCharsets.UTF_8);
+                    exchange.getResponseHeaders()
+                            .set("Content-Type", "application/vnd.spring-boot.actuator.v3+json");
+                    exchange.sendResponseHeaders(200, resp.length);
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(resp);
+                    }
+                });
+        server.createContext(
+                "/actuator/metrics/jvm.memory.used",
+                exchange -> {
+                    byte[] resp =
+                            "{\"name\":\"jvm.memory.used\",\"measurements\":[{\"value\":100}]}"
+                                    .getBytes(StandardCharsets.UTF_8);
+                    exchange.getResponseHeaders()
+                            .set("Content-Type", "application/vnd.spring-boot.actuator.v3+json");
+                    exchange.sendResponseHeaders(200, resp.length);
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(resp);
+                    }
+                });
+        server.createContext(
+                "/actuator/metrics/jvm.threads.live",
+                exchange -> {
+                    byte[] resp =
+                            "{\"name\":\"jvm.threads.live\",\"measurements\":[{\"value\":10}]}"
+                                    .getBytes(StandardCharsets.UTF_8);
+                    exchange.getResponseHeaders()
+                            .set("Content-Type", "application/vnd.spring-boot.actuator.v3+json");
+                    exchange.sendResponseHeaders(200, resp.length);
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(resp);
+                    }
+                });
+        server.createContext(
+                "/actuator/startup",
+                exchange -> {
+                    byte[] resp =
+                            "{\"springBootVersion\":\"3.3.0\"}".getBytes(StandardCharsets.UTF_8);
+                    exchange.getResponseHeaders()
+                            .set("Content-Type", "application/vnd.spring-boot.actuator.v3+json");
+                    exchange.sendResponseHeaders(200, resp.length);
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(resp);
+                    }
+                });
+        server.createContext(
+                "/actuator/info",
+                exchange -> {
+                    byte[] resp =
+                            "{\"app\":{\"version\":\"1.0\"}}".getBytes(StandardCharsets.UTF_8);
+                    exchange.getResponseHeaders()
+                            .set("Content-Type", "application/vnd.spring-boot.actuator.v3+json");
+                    exchange.sendResponseHeaders(200, resp.length);
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(resp);
+                    }
+                });
         server.start();
         serverBaseUrl = "http://localhost:" + server.getAddress().getPort();
     }
@@ -165,7 +190,8 @@ class ActuatorCommandTest {
         try {
             System.setOut(new PrintStream(out));
             CommandLine cmd = new CommandLine(new JvmMcp());
-            int exitCode = cmd.execute("actuator", "--url", serverBaseUrl, "metrics/jvm.memory.used");
+            int exitCode =
+                    cmd.execute("actuator", "--url", serverBaseUrl, "metrics/jvm.memory.used");
 
             assertThat(exitCode).isZero();
             assertThat(out.toString()).contains("\"name\":\"jvm.memory.used\"");
@@ -182,7 +208,12 @@ class ActuatorCommandTest {
         try {
             System.setOut(new PrintStream(out));
             CommandLine cmd = new CommandLine(new JvmMcp());
-            int exitCode = cmd.execute("actuator", "--url", serverBaseUrl, "metrics/jvm.memory.used,jvm.threads.live");
+            int exitCode =
+                    cmd.execute(
+                            "actuator",
+                            "--url",
+                            serverBaseUrl,
+                            "metrics/jvm.memory.used,jvm.threads.live");
 
             assertThat(exitCode).isZero();
             assertThat(out.toString()).contains("jvm.memory.used");
@@ -209,7 +240,8 @@ class ActuatorCommandTest {
     }
 
     @Test
-    @DisplayName("actuator command warns on credentials over unencrypted HTTP for non-loopback host")
+    @DisplayName(
+            "actuator command warns on credentials over unencrypted HTTP for non-loopback host")
     void shouldWarnOnCredentialsOverHttp() {
         ByteArrayOutputStream err = new ByteArrayOutputStream();
         PrintStream originalErr = System.err;
@@ -219,9 +251,12 @@ class ActuatorCommandTest {
             when(mockClient.getHealth()).thenReturn("{\"status\":\"UP\"}");
 
             ActuatorCommand command = new ActuatorCommand((url, auth) -> mockClient, key -> null);
-            new CommandLine(command).execute("--url", "http://example.internal:8080", "--token", "secret", "health");
+            new CommandLine(command)
+                    .execute(
+                            "--url", "http://example.internal:8080", "--token", "secret", "health");
 
-            assertThat(err.toString()).contains("WARNING: Sending Actuator credentials over unencrypted HTTP.");
+            assertThat(err.toString())
+                    .contains("WARNING: Sending Actuator credentials over unencrypted HTTP.");
         } finally {
             System.setErr(originalErr);
         }
@@ -235,7 +270,8 @@ class ActuatorCommandTest {
         try {
             System.setErr(new PrintStream(err));
             CommandLine cmd = new CommandLine(new JvmMcp());
-            int exitCode = cmd.execute("actuator", "--url", serverBaseUrl, "--user", "admin", "health");
+            int exitCode =
+                    cmd.execute("actuator", "--url", serverBaseUrl, "--user", "admin", "health");
 
             assertThat(exitCode).isEqualTo(1);
             assertThat(err.toString()).contains("Username and password must be provided together");
@@ -287,10 +323,13 @@ class ActuatorCommandTest {
         Map<String, String> env = Map.of("ACTUATOR_TOKEN", "env_bearer_token");
         AtomicReference<ActuatorAuth> capturedAuth = new AtomicReference<>();
 
-        ActuatorCommand command = new ActuatorCommand((url, auth) -> {
-            capturedAuth.set(auth);
-            return mockClient;
-        }, env::get);
+        ActuatorCommand command =
+                new ActuatorCommand(
+                        (url, auth) -> {
+                            capturedAuth.set(auth);
+                            return mockClient;
+                        },
+                        env::get);
 
         int exitCode = new CommandLine(command).execute("--url", "http://localhost:8080", "health");
 
@@ -302,18 +341,23 @@ class ActuatorCommandTest {
     }
 
     @Test
-    @DisplayName("actuator command falls back to ACTUATOR_USER and ACTUATOR_PASSWORD from environment")
+    @DisplayName(
+            "actuator command falls back to ACTUATOR_USER and ACTUATOR_PASSWORD from environment")
     void shouldFallbackToActuatorBasicAuthFromEnvironment() {
         ActuatorClient mockClient = mock(ActuatorClient.class);
         when(mockClient.getHealth()).thenReturn("{\"status\":\"UP\"}");
 
-        Map<String, String> env = Map.of("ACTUATOR_USER", "env_user", "ACTUATOR_PASSWORD", "env_pass");
+        Map<String, String> env =
+                Map.of("ACTUATOR_USER", "env_user", "ACTUATOR_PASSWORD", "env_pass");
         AtomicReference<ActuatorAuth> capturedAuth = new AtomicReference<>();
 
-        ActuatorCommand command = new ActuatorCommand((url, auth) -> {
-            capturedAuth.set(auth);
-            return mockClient;
-        }, env::get);
+        ActuatorCommand command =
+                new ActuatorCommand(
+                        (url, auth) -> {
+                            capturedAuth.set(auth);
+                            return mockClient;
+                        },
+                        env::get);
 
         int exitCode = new CommandLine(command).execute("--url", "http://localhost:8080", "health");
 
@@ -330,19 +374,25 @@ class ActuatorCommandTest {
         ActuatorClient mockClient = mock(ActuatorClient.class);
         when(mockClient.getHealth()).thenReturn("{\"status\":\"UP\"}");
 
-        Map<String, String> env = Map.of(
-            "ACTUATOR_USER", "env_user",
-            "ACTUATOR_PASSWORD", "env_pass",
-            "ACTUATOR_TOKEN", "env_token"
-        );
+        Map<String, String> env =
+                Map.of(
+                        "ACTUATOR_USER", "env_user",
+                        "ACTUATOR_PASSWORD", "env_pass",
+                        "ACTUATOR_TOKEN", "env_token");
         AtomicReference<ActuatorAuth> capturedAuth = new AtomicReference<>();
 
-        ActuatorCommand command = new ActuatorCommand((url, auth) -> {
-            capturedAuth.set(auth);
-            return mockClient;
-        }, env::get);
+        ActuatorCommand command =
+                new ActuatorCommand(
+                        (url, auth) -> {
+                            capturedAuth.set(auth);
+                            return mockClient;
+                        },
+                        env::get);
 
-        int exitCode = new CommandLine(command).execute("--url", "http://localhost:8080", "--token", "cli_token", "health");
+        int exitCode =
+                new CommandLine(command)
+                        .execute(
+                                "--url", "http://localhost:8080", "--token", "cli_token", "health");
 
         assertThat(exitCode).isZero();
         assertThat(capturedAuth.get()).isNotNull();
@@ -360,17 +410,24 @@ class ActuatorCommandTest {
         Map<String, String> env = Map.of("ACTUATOR_TOKEN", "env_token");
         AtomicReference<ActuatorAuth> capturedAuth = new AtomicReference<>();
 
-        ActuatorCommand command = new ActuatorCommand((url, auth) -> {
-            capturedAuth.set(auth);
-            return mockClient;
-        }, env::get);
+        ActuatorCommand command =
+                new ActuatorCommand(
+                        (url, auth) -> {
+                            capturedAuth.set(auth);
+                            return mockClient;
+                        },
+                        env::get);
 
-        int exitCode = new CommandLine(command).execute(
-            "--url", "http://localhost:8080",
-            "--user", "cli_user",
-            "--password", "cli_pass",
-            "health"
-        );
+        int exitCode =
+                new CommandLine(command)
+                        .execute(
+                                "--url",
+                                "http://localhost:8080",
+                                "--user",
+                                "cli_user",
+                                "--password",
+                                "cli_pass",
+                                "health");
 
         assertThat(exitCode).isZero();
         assertThat(capturedAuth.get()).isNotNull();
@@ -388,16 +445,17 @@ class ActuatorCommandTest {
         Map<String, String> env = Map.of("ACTUATOR_PASSWORD", "env_pass");
         AtomicReference<ActuatorAuth> capturedAuth = new AtomicReference<>();
 
-        ActuatorCommand command = new ActuatorCommand((url, auth) -> {
-            capturedAuth.set(auth);
-            return mockClient;
-        }, env::get);
+        ActuatorCommand command =
+                new ActuatorCommand(
+                        (url, auth) -> {
+                            capturedAuth.set(auth);
+                            return mockClient;
+                        },
+                        env::get);
 
-        int exitCode = new CommandLine(command).execute(
-            "--url", "http://localhost:8080",
-            "--user", "cli_user",
-            "health"
-        );
+        int exitCode =
+                new CommandLine(command)
+                        .execute("--url", "http://localhost:8080", "--user", "cli_user", "health");
 
         assertThat(exitCode).isZero();
         assertThat(capturedAuth.get()).isNotNull();
@@ -415,16 +473,22 @@ class ActuatorCommandTest {
         Map<String, String> env = Map.of("ACTUATOR_USER", "env_user");
         AtomicReference<ActuatorAuth> capturedAuth = new AtomicReference<>();
 
-        ActuatorCommand command = new ActuatorCommand((url, auth) -> {
-            capturedAuth.set(auth);
-            return mockClient;
-        }, env::get);
+        ActuatorCommand command =
+                new ActuatorCommand(
+                        (url, auth) -> {
+                            capturedAuth.set(auth);
+                            return mockClient;
+                        },
+                        env::get);
 
-        int exitCode = new CommandLine(command).execute(
-            "--url", "http://localhost:8080",
-            "--password", "cli_pass",
-            "health"
-        );
+        int exitCode =
+                new CommandLine(command)
+                        .execute(
+                                "--url",
+                                "http://localhost:8080",
+                                "--password",
+                                "cli_pass",
+                                "health");
 
         assertThat(exitCode).isZero();
         assertThat(capturedAuth.get()).isNotNull();
@@ -434,23 +498,28 @@ class ActuatorCommandTest {
     }
 
     @Test
-    @DisplayName("actuator command fails when both token and basic auth are provided in environment")
+    @DisplayName(
+            "actuator command fails when both token and basic auth are provided in environment")
     void shouldFailWhenBothTokenAndBasicAuthInEnvironment() {
         ByteArrayOutputStream err = new ByteArrayOutputStream();
         PrintStream originalErr = System.err;
         try {
             System.setErr(new PrintStream(err));
-            Map<String, String> env = Map.of(
-                "ACTUATOR_TOKEN", "env_token",
-                "ACTUATOR_USER", "env_user",
-                "ACTUATOR_PASSWORD", "env_pass"
-            );
+            Map<String, String> env =
+                    Map.of(
+                            "ACTUATOR_TOKEN", "env_token",
+                            "ACTUATOR_USER", "env_user",
+                            "ACTUATOR_PASSWORD", "env_pass");
 
-            ActuatorCommand command = new ActuatorCommand((url, auth) -> mock(ActuatorClient.class), env::get);
-            int exitCode = new CommandLine(command).execute("--url", "http://localhost:8080", "health");
+            ActuatorCommand command =
+                    new ActuatorCommand((url, auth) -> mock(ActuatorClient.class), env::get);
+            int exitCode =
+                    new CommandLine(command).execute("--url", "http://localhost:8080", "health");
 
             assertThat(exitCode).isEqualTo(1);
-            assertThat(err.toString()).contains("Use either bearer token or username/password credentials, not both.");
+            assertThat(err.toString())
+                    .contains(
+                            "Use either bearer token or username/password credentials, not both.");
         } finally {
             System.setErr(originalErr);
         }
@@ -465,8 +534,10 @@ class ActuatorCommandTest {
             System.setErr(new PrintStream(err));
             Map<String, String> env = Map.of("ACTUATOR_USER", "env_user");
 
-            ActuatorCommand command = new ActuatorCommand((url, auth) -> mock(ActuatorClient.class), env::get);
-            int exitCode = new CommandLine(command).execute("--url", "http://localhost:8080", "health");
+            ActuatorCommand command =
+                    new ActuatorCommand((url, auth) -> mock(ActuatorClient.class), env::get);
+            int exitCode =
+                    new CommandLine(command).execute("--url", "http://localhost:8080", "health");
 
             assertThat(exitCode).isEqualTo(1);
             assertThat(err.toString()).contains("Username and password must be provided together.");
@@ -484,8 +555,10 @@ class ActuatorCommandTest {
             System.setErr(new PrintStream(err));
             Map<String, String> env = Map.of("ACTUATOR_PASSWORD", "env_pass");
 
-            ActuatorCommand command = new ActuatorCommand((url, auth) -> mock(ActuatorClient.class), env::get);
-            int exitCode = new CommandLine(command).execute("--url", "http://localhost:8080", "health");
+            ActuatorCommand command =
+                    new ActuatorCommand((url, auth) -> mock(ActuatorClient.class), env::get);
+            int exitCode =
+                    new CommandLine(command).execute("--url", "http://localhost:8080", "health");
 
             assertThat(exitCode).isEqualTo(1);
             assertThat(err.toString()).contains("Username and password must be provided together.");
@@ -495,23 +568,31 @@ class ActuatorCommandTest {
     }
 
     @Test
-    @DisplayName("actuator command accepts --actuator-user and --actuator-password as valid flag aliases")
+    @DisplayName(
+            "actuator command accepts --actuator-user and --actuator-password as valid flag aliases")
     void shouldAcceptActuatorAuthFlagAliases() {
         ActuatorClient mockClient = mock(ActuatorClient.class);
         when(mockClient.getHealth()).thenReturn("{\"status\":\"UP\"}");
 
         AtomicReference<ActuatorAuth> capturedAuth = new AtomicReference<>();
-        ActuatorCommand command = new ActuatorCommand((url, auth) -> {
-            capturedAuth.set(auth);
-            return mockClient;
-        }, key -> null);
+        ActuatorCommand command =
+                new ActuatorCommand(
+                        (url, auth) -> {
+                            capturedAuth.set(auth);
+                            return mockClient;
+                        },
+                        key -> null);
 
-        int exitCode = new CommandLine(command).execute(
-            "--url", "http://127.0.0.1:8080",
-            "--actuator-user", "alias_user",
-            "--actuator-password", "alias_pass",
-            "health"
-        );
+        int exitCode =
+                new CommandLine(command)
+                        .execute(
+                                "--url",
+                                "http://127.0.0.1:8080",
+                                "--actuator-user",
+                                "alias_user",
+                                "--actuator-password",
+                                "alias_pass",
+                                "health");
 
         assertThat(exitCode).isZero();
         assertThat(capturedAuth.get()).isNotNull();
@@ -520,7 +601,8 @@ class ActuatorCommandTest {
     }
 
     @Test
-    @DisplayName("actuator command does not print unencrypted HTTP warning for loopback IP addresses")
+    @DisplayName(
+            "actuator command does not print unencrypted HTTP warning for loopback IP addresses")
     void shouldNotWarnForLoopbackIpAddresses() {
         ByteArrayOutputStream err = new ByteArrayOutputStream();
         PrintStream originalErr = System.err;
@@ -530,43 +612,56 @@ class ActuatorCommandTest {
             when(mockClient.getHealth()).thenReturn("{\"status\":\"UP\"}");
 
             ActuatorCommand command = new ActuatorCommand((url, auth) -> mockClient, key -> null);
-            int exitCode = new CommandLine(command).execute(
-                "--url", "http://127.0.0.1:8080",
-                "--token", "secret-token",
-                "health"
-            );
+            int exitCode =
+                    new CommandLine(command)
+                            .execute(
+                                    "--url",
+                                    "http://127.0.0.1:8080",
+                                    "--token",
+                                    "secret-token",
+                                    "health");
 
             assertThat(exitCode).isZero();
-            assertThat(err.toString()).doesNotContain("WARNING: Sending Actuator credentials over unencrypted HTTP.");
+            assertThat(err.toString())
+                    .doesNotContain("WARNING: Sending Actuator credentials over unencrypted HTTP.");
         } finally {
             System.setErr(originalErr);
         }
     }
 
     @Test
-    @DisplayName("actuator command uses Bearer auth and ignores CLI basic auth when both are passed on CLI")
+    @DisplayName(
+            "actuator command uses Bearer auth and ignores CLI basic auth when both are passed on CLI")
     void shouldPreferCliTokenWhenBothTokenAndBasicAuthPassedOnCli() {
         ActuatorClient mockClient = mock(ActuatorClient.class);
         when(mockClient.getHealth()).thenReturn("{\"status\":\"UP\"}");
 
-        Map<String, String> env = Map.of(
-            "ACTUATOR_TOKEN", "env_token",
-            "ACTUATOR_USER", "env_user",
-            "ACTUATOR_PASSWORD", "env_pass"
-        );
+        Map<String, String> env =
+                Map.of(
+                        "ACTUATOR_TOKEN", "env_token",
+                        "ACTUATOR_USER", "env_user",
+                        "ACTUATOR_PASSWORD", "env_pass");
         AtomicReference<ActuatorAuth> capturedAuth = new AtomicReference<>();
-        ActuatorCommand command = new ActuatorCommand((url, auth) -> {
-            capturedAuth.set(auth);
-            return mockClient;
-        }, env::get);
+        ActuatorCommand command =
+                new ActuatorCommand(
+                        (url, auth) -> {
+                            capturedAuth.set(auth);
+                            return mockClient;
+                        },
+                        env::get);
 
-        int exitCode = new CommandLine(command).execute(
-            "--url", "http://localhost:8080",
-            "--token", "cli_token",
-            "--user", "cli_user",
-            "--password", "cli_pass",
-            "health"
-        );
+        int exitCode =
+                new CommandLine(command)
+                        .execute(
+                                "--url",
+                                "http://localhost:8080",
+                                "--token",
+                                "cli_token",
+                                "--user",
+                                "cli_user",
+                                "--password",
+                                "cli_pass",
+                                "health");
 
         assertThat(exitCode).isZero();
         assertThat(capturedAuth.get()).isNotNull();

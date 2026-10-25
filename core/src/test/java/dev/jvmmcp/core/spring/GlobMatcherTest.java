@@ -1,11 +1,11 @@
 package dev.jvmmcp.core.spring;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 class GlobMatcherTest {
 
@@ -52,9 +52,8 @@ class GlobMatcherTest {
     @DisplayName("Excessive glob pattern length throws IllegalArgumentException in compileGlob")
     void shouldRejectExcessiveGlobLength() {
         String excessivePattern = "*".repeat(300);
-        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () ->
-            GlobMatcher.compileGlob(excessivePattern)
-        );
+        org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalArgumentException.class, () -> GlobMatcher.compileGlob(excessivePattern));
         assertThat(GlobMatcher.matches("test", excessivePattern)).isFalse();
     }
 }

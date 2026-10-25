@@ -1,8 +1,18 @@
 package dev.jvmmcp;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
+
 import com.sun.net.httpserver.HttpServer;
 import dev.jvmmcp.core.attach.AttachResult;
 import dev.jvmmcp.core.attach.JvmAttachService;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintStream;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
@@ -12,27 +22,16 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import picocli.CommandLine;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.PrintStream;
-import java.net.InetSocketAddress;
-import java.nio.charset.StandardCharsets;
-import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.when;
-
 @ExtendWith(MockitoExtension.class)
 class BeansCommandTest {
 
     private static HttpServer server;
     private static String serverBaseUrl;
 
-    @Mock
-    private JvmAttachService mockAttachService;
+    @Mock private JvmAttachService mockAttachService;
 
-    private static final String SAMPLE_ACTUATOR_JSON = """
+    private static final String SAMPLE_ACTUATOR_JSON =
+            """
         {
           "contexts": {
             "application": {
@@ -75,14 +74,17 @@ class BeansCommandTest {
     @BeforeAll
     static void startHttpServer() throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        server.createContext("/actuator/beans", exchange -> {
-            byte[] responseBytes = SAMPLE_ACTUATOR_JSON.getBytes(StandardCharsets.UTF_8);
-            exchange.getResponseHeaders().set("Content-Type", "application/vnd.spring-boot.actuator.v3+json");
-            exchange.sendResponseHeaders(200, responseBytes.length);
-            try (OutputStream os = exchange.getResponseBody()) {
-                os.write(responseBytes);
-            }
-        });
+        server.createContext(
+                "/actuator/beans",
+                exchange -> {
+                    byte[] responseBytes = SAMPLE_ACTUATOR_JSON.getBytes(StandardCharsets.UTF_8);
+                    exchange.getResponseHeaders()
+                            .set("Content-Type", "application/vnd.spring-boot.actuator.v3+json");
+                    exchange.sendResponseHeaders(200, responseBytes.length);
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(responseBytes);
+                    }
+                });
         server.start();
         serverBaseUrl = "http://127.0.0.1:" + server.getAddress().getPort();
     }
@@ -107,8 +109,17 @@ class BeansCommandTest {
     @DisplayName("beans command should reject Basic and Bearer credentials used together")
     void shouldRejectBasicAndBearerTogether() {
         CommandLine cmd = new CommandLine(new JvmMcp());
-        int exitCode = cmd.execute("beans", "--actuator", serverBaseUrl,
-            "--actuator-user", "admin", "--actuator-password", "pw", "--actuator-token", "tok");
+        int exitCode =
+                cmd.execute(
+                        "beans",
+                        "--actuator",
+                        serverBaseUrl,
+                        "--actuator-user",
+                        "admin",
+                        "--actuator-password",
+                        "pw",
+                        "--actuator-token",
+                        "tok");
 
         assertThat(exitCode).isEqualTo(1);
     }
@@ -117,7 +128,8 @@ class BeansCommandTest {
     @DisplayName("beans command should reject a username without a password")
     void shouldRejectUserWithoutPassword() {
         CommandLine cmd = new CommandLine(new JvmMcp());
-        int exitCode = cmd.execute("beans", "--actuator", serverBaseUrl, "--actuator-user", "admin");
+        int exitCode =
+                cmd.execute("beans", "--actuator", serverBaseUrl, "--actuator-user", "admin");
 
         assertThat(exitCode).isEqualTo(1);
     }
@@ -179,7 +191,8 @@ class BeansCommandTest {
         try {
             System.setOut(new PrintStream(out));
             CommandLine cmd = new CommandLine(new JvmMcp());
-            int exitCode = cmd.execute("beans", "--actuator", serverBaseUrl, "--filter", "*NonExistent*");
+            int exitCode =
+                    cmd.execute("beans", "--actuator", serverBaseUrl, "--filter", "*NonExistent*");
 
             assertThat(exitCode).isZero();
             String output = out.toString();
@@ -197,12 +210,14 @@ class BeansCommandTest {
         try {
             System.setOut(new PrintStream(out));
             CommandLine cmd = new CommandLine(new JvmMcp());
-            int exitCode = cmd.execute("beans", "--actuator", serverBaseUrl, "--detail", "orderService");
+            int exitCode =
+                    cmd.execute("beans", "--actuator", serverBaseUrl, "--detail", "orderService");
 
             assertThat(exitCode).isZero();
             String output = out.toString();
             assertThat(output).contains("BEAN DETAIL: orderService");
-            assertThat(output).contains("Type        : dev.jvmmcp.samples.OrderServiceImplementation");
+            assertThat(output)
+                    .contains("Type        : dev.jvmmcp.samples.OrderServiceImplementation");
             assertThat(output).contains("Scope       : singleton");
             assertThat(output).contains("Aliases     : orderManager, orderSvc");
             assertThat(output).contains("DIRECT DEPENDENCIES (2)");
@@ -221,7 +236,8 @@ class BeansCommandTest {
         try {
             System.setOut(new PrintStream(out));
             CommandLine cmd = new CommandLine(new JvmMcp());
-            int exitCode = cmd.execute("beans", "--actuator", serverBaseUrl, "--detail", "paymentGateway");
+            int exitCode =
+                    cmd.execute("beans", "--actuator", serverBaseUrl, "--detail", "paymentGateway");
 
             assertThat(exitCode).isZero();
             String output = out.toString();
@@ -234,7 +250,8 @@ class BeansCommandTest {
     }
 
     @Test
-    @DisplayName("beans command with --detail for non-existent bean should return error exit code 1")
+    @DisplayName(
+            "beans command with --detail for non-existent bean should return error exit code 1")
     void shouldFailWhenDetailBeanNotFound() {
         CommandLine cmd = new CommandLine(new JvmMcp());
         int exitCode = cmd.execute("beans", "--actuator", serverBaseUrl, "--detail", "unknownBean");
@@ -243,7 +260,8 @@ class BeansCommandTest {
     }
 
     @Test
-    @DisplayName("beans command with blank detailBeanName or actuatorUrl should not trigger those branches")
+    @DisplayName(
+            "beans command with blank detailBeanName or actuatorUrl should not trigger those branches")
     void shouldHandleBlankStringsGracefully() {
         CommandLine cmd = new CommandLine(new JvmMcp());
         int exitCode = cmd.execute("beans", "--actuator", "   ", "--detail", "   ");
@@ -260,8 +278,14 @@ class BeansCommandTest {
         try {
             System.setErr(new PrintStream(err));
             CommandLine cmd = new CommandLine(new JvmMcp());
-            int exitCode = cmd.execute("beans", "--actuator", serverBaseUrl,
-                "--actuator-token", "test-token", "--insecure");
+            int exitCode =
+                    cmd.execute(
+                            "beans",
+                            "--actuator",
+                            serverBaseUrl,
+                            "--actuator-token",
+                            "test-token",
+                            "--insecure");
 
             assertThat(exitCode).isZero();
             String errOutput = err.toString();
@@ -282,8 +306,14 @@ class BeansCommandTest {
             CommandLine cmd = new CommandLine(new JvmMcp());
             // It will fail with exit code 1 because https://1.1.1.1:9999 won't be open,
             // but that's fine, we just want to cover the warning branch condition correctly.
-            int exitCode = cmd.execute("beans", "--actuator", "https://1.1.1.1:9999",
-                "--actuator-token", "test-token", "--insecure");
+            int exitCode =
+                    cmd.execute(
+                            "beans",
+                            "--actuator",
+                            "https://1.1.1.1:9999",
+                            "--actuator-token",
+                            "test-token",
+                            "--insecure");
 
             assertThat(exitCode).isEqualTo(1);
             String errOutput = err.toString();
@@ -298,7 +328,8 @@ class BeansCommandTest {
     @DisplayName("beans command on attached PID should execute local inspection")
     void shouldInspectAttachedProcessBeans() {
         long targetPid = 100L;
-        when(mockAttachService.attach(String.valueOf(targetPid))).thenReturn(AttachResult.success(String.valueOf(targetPid), null));
+        when(mockAttachService.attach(String.valueOf(targetPid)))
+                .thenReturn(AttachResult.success(String.valueOf(targetPid), null));
 
         BeansCommand command = new BeansCommand(mockAttachService);
         command.pid = targetPid;
@@ -320,12 +351,15 @@ class BeansCommandTest {
     @DisplayName("beans command uses Actuator before opening JMX and detaches the VM")
     void shouldUseActuatorBeforeJmxForAttachedProcess() throws Exception {
         long targetPid = ProcessHandle.current().pid() + 1;
-        com.sun.tools.attach.VirtualMachine mockVm = org.mockito.Mockito.mock(com.sun.tools.attach.VirtualMachine.class);
+        com.sun.tools.attach.VirtualMachine mockVm =
+                org.mockito.Mockito.mock(com.sun.tools.attach.VirtualMachine.class);
         java.util.Properties systemProperties = new java.util.Properties();
-        systemProperties.setProperty("server.port", serverBaseUrl.substring(serverBaseUrl.lastIndexOf(':') + 1));
+        systemProperties.setProperty(
+                "server.port", serverBaseUrl.substring(serverBaseUrl.lastIndexOf(':') + 1));
         when(mockVm.getSystemProperties()).thenReturn(systemProperties);
         when(mockVm.getAgentProperties()).thenReturn(new java.util.Properties());
-        when(mockAttachService.attach(String.valueOf(targetPid))).thenReturn(AttachResult.success(String.valueOf(targetPid), mockVm));
+        when(mockAttachService.attach(String.valueOf(targetPid)))
+                .thenReturn(AttachResult.success(String.valueOf(targetPid), mockVm));
 
         BeansCommand command = new BeansCommand(mockAttachService);
         command.pid = targetPid;
@@ -339,8 +373,12 @@ class BeansCommandTest {
             assertThat(exitCode).isZero();
             assertThat(out.toString()).contains("ACTUATOR_HTTP", "orderService");
             org.mockito.Mockito.verify(mockAttachService).detach(mockVm);
-            org.mockito.Mockito.verify(mockVm, org.mockito.Mockito.never()).startLocalManagementAgent();
-            org.mockito.Mockito.verify(mockVm, org.mockito.Mockito.never()).loadAgent(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString());
+            org.mockito.Mockito.verify(mockVm, org.mockito.Mockito.never())
+                    .startLocalManagementAgent();
+            org.mockito.Mockito.verify(mockVm, org.mockito.Mockito.never())
+                    .loadAgent(
+                            org.mockito.ArgumentMatchers.anyString(),
+                            org.mockito.ArgumentMatchers.anyString());
         } finally {
             System.setOut(originalOut);
         }
@@ -350,11 +388,15 @@ class BeansCommandTest {
     @DisplayName("beans command on attached remote PID should attempt connect")
     void shouldAttemptRemoteConnectOnRemoteVm() throws Exception {
         long targetPid = 100L;
-        com.sun.tools.attach.VirtualMachine mockVm = org.mockito.Mockito.mock(com.sun.tools.attach.VirtualMachine.class);
+        com.sun.tools.attach.VirtualMachine mockVm =
+                org.mockito.Mockito.mock(com.sun.tools.attach.VirtualMachine.class);
         java.util.Properties props = new java.util.Properties();
-        props.setProperty("com.sun.management.jmxremote.localConnectorAddress", "service:jmx:rmi:///jndi/rmi://localhost:9000/jmxrmi");
+        props.setProperty(
+                "com.sun.management.jmxremote.localConnectorAddress",
+                "service:jmx:rmi:///jndi/rmi://localhost:9000/jmxrmi");
         when(mockVm.getAgentProperties()).thenReturn(props);
-        when(mockAttachService.attach(String.valueOf(targetPid))).thenReturn(AttachResult.success(String.valueOf(targetPid), mockVm));
+        when(mockAttachService.attach(String.valueOf(targetPid)))
+                .thenReturn(AttachResult.success(String.valueOf(targetPid), mockVm));
 
         BeansCommand command = new BeansCommand(mockAttachService);
         command.pid = targetPid;
@@ -374,7 +416,8 @@ class BeansCommandTest {
     @DisplayName("beans command should return error when attach fails")
     void shouldHandleAttachFailureGracefully() {
         long targetPid = 100L;
-        when(mockAttachService.attach(String.valueOf(targetPid))).thenReturn(AttachResult.processNotFound(String.valueOf(targetPid)));
+        when(mockAttachService.attach(String.valueOf(targetPid)))
+                .thenReturn(AttachResult.processNotFound(String.valueOf(targetPid)));
 
         BeansCommand command = new BeansCommand(mockAttachService);
         command.pid = targetPid;
@@ -396,7 +439,8 @@ class BeansCommandTest {
     @DisplayName("beans command should handle unexpected inspection exception")
     void shouldHandleInspectionExceptionGracefully() {
         long targetPid = 100L;
-        when(mockAttachService.attach(String.valueOf(targetPid))).thenThrow(new RuntimeException("JMX error"));
+        when(mockAttachService.attach(String.valueOf(targetPid)))
+                .thenThrow(new RuntimeException("JMX error"));
 
         BeansCommand command = new BeansCommand(mockAttachService);
         command.pid = targetPid;
@@ -415,7 +459,8 @@ class BeansCommandTest {
     }
 
     @Test
-    @DisplayName("beans command with --json should output parseable JSON report without ASCII decorations")
+    @DisplayName(
+            "beans command with --json should output parseable JSON report without ASCII decorations")
     void shouldOutputJsonReport() {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         PrintStream originalOut = System.out;
@@ -445,7 +490,14 @@ class BeansCommandTest {
         try {
             System.setOut(new PrintStream(out));
             CommandLine cmd = new CommandLine(new JvmMcp());
-            int exitCode = cmd.execute("beans", "--actuator", serverBaseUrl, "--json", "--detail", "orderService");
+            int exitCode =
+                    cmd.execute(
+                            "beans",
+                            "--actuator",
+                            serverBaseUrl,
+                            "--json",
+                            "--detail",
+                            "orderService");
 
             assertThat(exitCode).isZero();
             String output = out.toString().trim();
@@ -453,17 +505,21 @@ class BeansCommandTest {
 
             Map<String, Object> parsed = dev.jvmmcp.core.util.SimpleJson.parseObject(output);
             assertThat(parsed).containsEntry("name", "orderService");
-            assertThat(parsed).containsEntry("type", "dev.jvmmcp.samples.OrderServiceImplementation");
+            assertThat(parsed)
+                    .containsEntry("type", "dev.jvmmcp.samples.OrderServiceImplementation");
         } finally {
             System.setOut(originalOut);
         }
     }
 
     @Test
-    @DisplayName("beans command with --json --detail for non-existent bean should return exit code 1")
+    @DisplayName(
+            "beans command with --json --detail for non-existent bean should return exit code 1")
     void shouldFailJsonDetailWhenBeanNotFound() {
         CommandLine cmd = new CommandLine(new JvmMcp());
-        int exitCode = cmd.execute("beans", "--actuator", serverBaseUrl, "--json", "--detail", "unknownBean");
+        int exitCode =
+                cmd.execute(
+                        "beans", "--actuator", serverBaseUrl, "--json", "--detail", "unknownBean");
 
         assertThat(exitCode).isEqualTo(1);
     }
@@ -478,10 +534,10 @@ class BeansCommandTest {
     @Test
     @DisplayName("beans command reads Actuator credentials from environment variables")
     void shouldReadAuthFromEnvironmentVariables() {
-        Map<String, String> env = Map.of(
-            "ACTUATOR_USER", "env_user",
-            "ACTUATOR_PASSWORD", "env_pass"
-        );
+        Map<String, String> env =
+                Map.of(
+                        "ACTUATOR_USER", "env_user",
+                        "ACTUATOR_PASSWORD", "env_pass");
         BeansCommand cmd = new BeansCommand(new JvmAttachService(), env::get);
         cmd.actuatorUrl = serverBaseUrl;
         int exitCode = cmd.call();

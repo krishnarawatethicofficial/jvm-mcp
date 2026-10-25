@@ -5,8 +5,8 @@ import java.util.Base64;
 import java.util.Optional;
 
 /**
- * Connection options for reaching a protected Actuator endpoint: Basic auth, Bearer token,
- * and optional trust-all TLS for self-signed certificates.
+ * Connection options for reaching a protected Actuator endpoint: Basic auth, Bearer token, and
+ * optional trust-all TLS for self-signed certificates.
  *
  * <p>Secrets are never included in {@link #toString()}.
  */
@@ -22,16 +22,15 @@ public record ActuatorAuth(String user, String password, String bearerToken, boo
         return new ActuatorAuth(null, null, token, insecure);
     }
 
-    /**
-     * Returns a human-readable validation error, or empty if the combination is valid.
-     */
+    /** Returns a human-readable validation error, or empty if the combination is valid. */
     public Optional<String> validate() {
         boolean hasUser = notBlank(user);
         boolean hasPassword = password != null && !password.isEmpty();
         boolean hasToken = notBlank(bearerToken);
 
         if (hasToken && (hasUser || hasPassword)) {
-            return Optional.of("Use either bearer token or username/password credentials, not both.");
+            return Optional.of(
+                    "Use either bearer token or username/password credentials, not both.");
         }
         if (hasUser != hasPassword) {
             return Optional.of("Username and password must be provided together.");
@@ -39,16 +38,17 @@ public record ActuatorAuth(String user, String password, String bearerToken, boo
         return Optional.empty();
     }
 
-    /**
-     * Value for the {@code Authorization} header, or empty when no credentials are configured.
-     */
+    /** Value for the {@code Authorization} header, or empty when no credentials are configured. */
     public Optional<String> authorizationHeader() {
         if (notBlank(bearerToken)) {
             return Optional.of("Bearer " + bearerToken.trim());
         }
         if (notBlank(user) && password != null && !password.isEmpty()) {
             String raw = user + ":" + password;
-            return Optional.of("Basic " + Base64.getEncoder().encodeToString(raw.getBytes(StandardCharsets.UTF_8)));
+            return Optional.of(
+                    "Basic "
+                            + Base64.getEncoder()
+                                    .encodeToString(raw.getBytes(StandardCharsets.UTF_8)));
         }
         return Optional.empty();
     }

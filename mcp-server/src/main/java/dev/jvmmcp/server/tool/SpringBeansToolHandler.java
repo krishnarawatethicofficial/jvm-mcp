@@ -1,20 +1,17 @@
 package dev.jvmmcp.server.tool;
 
+import com.sun.tools.attach.VirtualMachine;
 import dev.jvmmcp.core.attach.AttachResult;
 import dev.jvmmcp.core.attach.JvmAttachService;
 import dev.jvmmcp.core.jmx.JmxConnectionManager;
 import dev.jvmmcp.core.model.SpringBeansReport;
 import dev.jvmmcp.core.spring.SpringBeansClient;
 import dev.jvmmcp.core.util.SimpleJson;
-import com.sun.tools.attach.VirtualMachine;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Handles Spring bean inspection tools: list_spring_beans, get_bean_detail.
- */
+/** Handles Spring bean inspection tools: list_spring_beans, get_bean_detail. */
 public class SpringBeansToolHandler implements ToolHandler {
 
     @FunctionalInterface
@@ -31,14 +28,29 @@ public class SpringBeansToolHandler implements ToolHandler {
     }
 
     public SpringBeansToolHandler(JvmAttachService attachService) {
-        this(attachService, new SpringBeansClient(), (vm, pid) -> vm != null ? JmxConnectionManager.connect(vm, pid) : JmxConnectionManager.connectLocal());
+        this(
+                attachService,
+                new SpringBeansClient(),
+                (vm, pid) ->
+                        vm != null
+                                ? JmxConnectionManager.connect(vm, pid)
+                                : JmxConnectionManager.connectLocal());
     }
 
     public SpringBeansToolHandler(JvmAttachService attachService, SpringBeansClient beansClient) {
-        this(attachService, beansClient, (vm, pid) -> vm != null ? JmxConnectionManager.connect(vm, pid) : JmxConnectionManager.connectLocal());
+        this(
+                attachService,
+                beansClient,
+                (vm, pid) ->
+                        vm != null
+                                ? JmxConnectionManager.connect(vm, pid)
+                                : JmxConnectionManager.connectLocal());
     }
 
-    public SpringBeansToolHandler(JvmAttachService attachService, SpringBeansClient beansClient, JmxConnector jmxConnector) {
+    public SpringBeansToolHandler(
+            JvmAttachService attachService,
+            SpringBeansClient beansClient,
+            JmxConnector jmxConnector) {
         this.attachService = attachService;
         this.beansClient = beansClient;
         this.jmxConnector = jmxConnector;
@@ -52,31 +64,48 @@ public class SpringBeansToolHandler implements ToolHandler {
     @Override
     public List<Map<String, Object>> toolDefinitions() {
         return List.of(
-            Map.of(
-                "name", "list_spring_beans",
-                "description", "Lists instantiated Spring Beans in the ApplicationContext",
-                "inputSchema", Map.of(
-                    "type", "object",
-                    "properties", Map.of(
-                        "pid", Map.of("type", "number", "description", "Target JVM Process ID"),
-                        "filter", Map.of("type", "string", "description", "Optional glob filter (e.g. *Service*)")
-                    ),
-                    "required", List.of("pid")
-                )
-            ),
-            Map.of(
-                "name", "get_bean_detail",
-                "description", "Gets detailed information about a specific Spring Bean",
-                "inputSchema", Map.of(
-                    "type", "object",
-                    "properties", Map.of(
-                        "pid", Map.of("type", "number", "description", "Target JVM Process ID"),
-                        "beanName", Map.of("type", "string", "description", "Exact bean name")
-                    ),
-                    "required", List.of("pid", "beanName")
-                )
-            )
-        );
+                Map.of(
+                        "name", "list_spring_beans",
+                        "description", "Lists instantiated Spring Beans in the ApplicationContext",
+                        "inputSchema",
+                                Map.of(
+                                        "type", "object",
+                                        "properties",
+                                                Map.of(
+                                                        "pid",
+                                                                Map.of(
+                                                                        "type",
+                                                                        "number",
+                                                                        "description",
+                                                                        "Target JVM Process ID"),
+                                                        "filter",
+                                                                Map.of(
+                                                                        "type",
+                                                                        "string",
+                                                                        "description",
+                                                                        "Optional glob filter (e.g. *Service*)")),
+                                        "required", List.of("pid"))),
+                Map.of(
+                        "name", "get_bean_detail",
+                        "description", "Gets detailed information about a specific Spring Bean",
+                        "inputSchema",
+                                Map.of(
+                                        "type", "object",
+                                        "properties",
+                                                Map.of(
+                                                        "pid",
+                                                                Map.of(
+                                                                        "type",
+                                                                        "number",
+                                                                        "description",
+                                                                        "Target JVM Process ID"),
+                                                        "beanName",
+                                                                Map.of(
+                                                                        "type",
+                                                                        "string",
+                                                                        "description",
+                                                                        "Exact bean name")),
+                                        "required", List.of("pid", "beanName"))));
     }
 
     @Override
@@ -92,11 +121,16 @@ public class SpringBeansToolHandler implements ToolHandler {
         List<Map<String, Object>> content = new ArrayList<>();
         try {
             String filterGlob = ToolArgs.getStringArg(args, "filter", false);
-            SpringBeansReport report = beansClient.inspectBeansWithJmxProvider(pid, vm, () -> {
-                JmxConnectionManager manager = jmxConnector.connect(vm, pid);
-                jmxManagerOwnsVm[0] = true;
-                return manager;
-            }, filterGlob);
+            SpringBeansReport report =
+                    beansClient.inspectBeansWithJmxProvider(
+                            pid,
+                            vm,
+                            () -> {
+                                JmxConnectionManager manager = jmxConnector.connect(vm, pid);
+                                jmxManagerOwnsVm[0] = true;
+                                return manager;
+                            },
+                            filterGlob);
 
             if ("list_spring_beans".equals(toolName)) {
                 content.add(Map.of("type", "text", "text", SimpleJson.toJson(report)));
@@ -107,9 +141,17 @@ public class SpringBeansToolHandler implements ToolHandler {
                     content.add(Map.of("type", "text", "text", SimpleJson.toJson(detailOpt.get())));
                 } else {
                     return Map.of(
-                        "content", List.of(Map.of("type", "text", "text", "Bean not found: '" + beanName + "'. Use 'list_spring_beans' to inspect registered bean names in this ApplicationContext.")),
-                        "isError", true
-                    );
+                            "content",
+                            List.of(
+                                    Map.of(
+                                            "type",
+                                            "text",
+                                            "text",
+                                            "Bean not found: '"
+                                                    + beanName
+                                                    + "'. Use 'list_spring_beans' to inspect registered bean names in this ApplicationContext.")),
+                            "isError",
+                            true);
                 }
             } else {
                 throw new IllegalArgumentException("Unknown Spring Beans tool: " + toolName);

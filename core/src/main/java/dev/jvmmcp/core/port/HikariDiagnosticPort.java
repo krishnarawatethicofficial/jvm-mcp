@@ -5,5 +5,7 @@ import java.util.List;
 
 public interface HikariDiagnosticPort extends AutoCloseable {
     List<HikariPoolStatistics> getPools() throws Exception;
-    @Override void close() throws Exception;
+
+    @Override
+    void close() throws Exception;
 }

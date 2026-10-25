@@ -7,21 +7,27 @@ public class VirtualThreadTarget {
         CountDownLatch releaseLatch = new CountDownLatch(1);
         CountDownLatch startedLatch = new CountDownLatch(2);
 
-        Thread.ofVirtual().name("integration-vthread-1").start(() -> {
-            startedLatch.countDown();
-            try {
-                releaseLatch.await();
-            } catch (InterruptedException ignored) {
-            }
-        });
+        Thread.ofVirtual()
+                .name("integration-vthread-1")
+                .start(
+                        () -> {
+                            startedLatch.countDown();
+                            try {
+                                releaseLatch.await();
+                            } catch (InterruptedException ignored) {
+                            }
+                        });
 
-        Thread.ofVirtual().name("integration-vthread-2").start(() -> {
-            startedLatch.countDown();
-            try {
-                releaseLatch.await();
-            } catch (InterruptedException ignored) {
-            }
-        });
+        Thread.ofVirtual()
+                .name("integration-vthread-2")
+                .start(
+                        () -> {
+                            startedLatch.countDown();
+                            try {
+                                releaseLatch.await();
+                            } catch (InterruptedException ignored) {
+                            }
+                        });
 
         startedLatch.await();
         System.out.println("READY");

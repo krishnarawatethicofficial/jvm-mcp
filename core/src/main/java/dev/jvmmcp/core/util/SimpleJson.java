@@ -3,8 +3,8 @@ package dev.jvmmcp.core.util;
 import java.util.*;
 
 /**
- * Ultra-lightweight, zero-dependency JSON parser designed for Java 21 standard runtime.
- * Parses JSON strings into Maps, Lists, Strings, Doubles, Longs, Booleans, and nulls.
+ * Ultra-lightweight, zero-dependency JSON parser designed for Java 21 standard runtime. Parses JSON
+ * strings into Maps, Lists, Strings, Doubles, Longs, Booleans, and nulls.
  */
 public final class SimpleJson {
 
@@ -16,7 +16,9 @@ public final class SimpleJson {
         if (parsed instanceof Map) {
             return (Map<String, Object>) parsed;
         }
-        throw new IllegalArgumentException("Expected JSON Object but found: " + (parsed != null ? parsed.getClass().getSimpleName() : "null"));
+        throw new IllegalArgumentException(
+                "Expected JSON Object but found: "
+                        + (parsed != null ? parsed.getClass().getSimpleName() : "null"));
     }
 
     private static final int MAX_SERIALIZATION_DEPTH = 100;
@@ -27,7 +29,8 @@ public final class SimpleJson {
 
     private static String toJson(Object obj, int depth) {
         if (depth > MAX_SERIALIZATION_DEPTH) {
-            throw new IllegalArgumentException("Exceeded maximum serialization depth (" + MAX_SERIALIZATION_DEPTH + ")");
+            throw new IllegalArgumentException(
+                    "Exceeded maximum serialization depth (" + MAX_SERIALIZATION_DEPTH + ")");
         }
         if (obj == null) return "null";
         if (obj instanceof Optional<?> optional) {
@@ -49,13 +52,27 @@ public final class SimpleJson {
             for (int i = 0; i < s.length(); i++) {
                 char c = s.charAt(i);
                 switch (c) {
-                    case '"': sb.append("\\\""); break;
-                    case '\\': sb.append("\\\\"); break;
-                    case '\b': sb.append("\\b"); break;
-                    case '\f': sb.append("\\f"); break;
-                    case '\n': sb.append("\\n"); break;
-                    case '\r': sb.append("\\r"); break;
-                    case '\t': sb.append("\\t"); break;
+                    case '"':
+                        sb.append("\\\"");
+                        break;
+                    case '\\':
+                        sb.append("\\\\");
+                        break;
+                    case '\b':
+                        sb.append("\\b");
+                        break;
+                    case '\f':
+                        sb.append("\\f");
+                        break;
+                    case '\n':
+                        sb.append("\\n");
+                        break;
+                    case '\r':
+                        sb.append("\\r");
+                        break;
+                    case '\t':
+                        sb.append("\\t");
+                        break;
                     default:
                         if (c < 32) {
                             sb.append(String.format("\\u%04x", (int) c));
@@ -85,7 +102,9 @@ public final class SimpleJson {
             for (Map.Entry<?, ?> entry : map.entrySet()) {
                 if (!first) sb.append(",");
                 String keyStr = entry.getKey() != null ? entry.getKey().toString() : "null";
-                sb.append(toJson(keyStr, depth + 1)).append(":").append(toJson(entry.getValue(), depth + 1));
+                sb.append(toJson(keyStr, depth + 1))
+                        .append(":")
+                        .append(toJson(entry.getValue(), depth + 1));
                 first = false;
             }
             return sb.append("}").toString();
@@ -113,7 +132,8 @@ public final class SimpleJson {
         if (obj.getClass().isRecord()) {
             StringBuilder sb = new StringBuilder("{");
             boolean first = true;
-            for (java.lang.reflect.RecordComponent component : obj.getClass().getRecordComponents()) {
+            for (java.lang.reflect.RecordComponent component :
+                    obj.getClass().getRecordComponents()) {
                 if (!first) sb.append(",");
                 sb.append(toJson(component.getName(), depth + 1)).append(":");
                 try {
@@ -121,7 +141,8 @@ public final class SimpleJson {
                     if (!accessor.canAccess(obj)) {
                         try {
                             accessor.setAccessible(true);
-                        } catch (Exception ignored) {}
+                        } catch (Exception ignored) {
+                        }
                     }
                     sb.append(toJson(accessor.invoke(obj), depth + 1));
                 } catch (Exception e) {
@@ -148,8 +169,7 @@ public final class SimpleJson {
         tokenizer.skipWhitespace();
         if (tokenizer.hasMore()) {
             throw new IllegalArgumentException(
-                "Trailing content after JSON value at position " + tokenizer.getIndex()
-            );
+                    "Trailing content after JSON value at position " + tokenizer.getIndex());
         }
         return value;
     }
@@ -172,7 +192,8 @@ public final class SimpleJson {
             return parseNumber(tokenizer);
         }
 
-        throw new IllegalArgumentException("Unexpected character at position " + tokenizer.getIndex() + ": '" + c + "'");
+        throw new IllegalArgumentException(
+                "Unexpected character at position " + tokenizer.getIndex() + ": '" + c + "'");
     }
 
     private static Map<String, Object> parseObject(Tokenizer tokenizer) {
@@ -203,7 +224,12 @@ public final class SimpleJson {
                 } else if (next == ',') {
                     tokenizer.consume(',');
                 } else {
-                    throw new IllegalArgumentException("Expected ',' or '}' in object at position " + tokenizer.getIndex() + ", got '" + next + "'");
+                    throw new IllegalArgumentException(
+                            "Expected ',' or '}' in object at position "
+                                    + tokenizer.getIndex()
+                                    + ", got '"
+                                    + next
+                                    + "'");
                 }
             }
 
@@ -235,7 +261,12 @@ public final class SimpleJson {
                 } else if (next == ',') {
                     tokenizer.consume(',');
                 } else {
-                    throw new IllegalArgumentException("Expected ',' or ']' in array at position " + tokenizer.getIndex() + ", got '" + next + "'");
+                    throw new IllegalArgumentException(
+                            "Expected ',' or ']' in array at position "
+                                    + tokenizer.getIndex()
+                                    + ", got '"
+                                    + next
+                                    + "'");
                 }
             }
 
@@ -248,7 +279,8 @@ public final class SimpleJson {
     private static String parseString(Tokenizer tokenizer) {
         char quote = tokenizer.consume();
         if (quote != '"') {
-            throw new IllegalArgumentException("Expected '\"' at position " + (tokenizer.getIndex() - 1));
+            throw new IllegalArgumentException(
+                    "Expected '\"' at position " + (tokenizer.getIndex() - 1));
         }
 
         StringBuilder sb = new StringBuilder();
@@ -276,16 +308,19 @@ public final class SimpleJson {
                         for (int i = 0; i < 4; i++) {
                             if (!tokenizer.hasMore()) {
                                 throw new IllegalArgumentException(
-                                    "Invalid unicode escape at position " + hexStart
-                                        + ": expected 4 hexadecimal digits but the input ended after " + hex.length()
-                                );
+                                        "Invalid unicode escape at position "
+                                                + hexStart
+                                                + ": expected 4 hexadecimal digits but the input ended after "
+                                                + hex.length());
                             }
                             char digit = tokenizer.consume();
                             if (!isHexDigit(digit)) {
                                 throw new IllegalArgumentException(
-                                    "Invalid unicode escape at position " + (tokenizer.getIndex() - 1)
-                                        + ": '" + digit + "' is not a hexadecimal digit"
-                                );
+                                        "Invalid unicode escape at position "
+                                                + (tokenizer.getIndex() - 1)
+                                                + ": '"
+                                                + digit
+                                                + "' is not a hexadecimal digit");
                             }
                             hex.append(digit);
                         }
@@ -324,8 +359,9 @@ public final class SimpleJson {
         }
         if (consumeDigits(tokenizer) == 0) {
             throw new IllegalArgumentException(
-                "Invalid number at position " + start + ": expected at least one digit after '-'"
-            );
+                    "Invalid number at position "
+                            + start
+                            + ": expected at least one digit after '-'");
         }
 
         boolean isFloatingPoint = false;
@@ -334,8 +370,9 @@ public final class SimpleJson {
             tokenizer.consume();
             if (consumeDigits(tokenizer) == 0) {
                 throw new IllegalArgumentException(
-                    "Invalid number at position " + start + ": expected at least one digit after the decimal point"
-                );
+                        "Invalid number at position "
+                                + start
+                                + ": expected at least one digit after the decimal point");
             }
         }
 
@@ -347,8 +384,9 @@ public final class SimpleJson {
             }
             if (consumeDigits(tokenizer) == 0) {
                 throw new IllegalArgumentException(
-                    "Invalid number at position " + start + ": expected at least one digit in the exponent"
-                );
+                        "Invalid number at position "
+                                + start
+                                + ": expected at least one digit in the exponent");
             }
         }
 
@@ -399,7 +437,8 @@ public final class SimpleJson {
         void enter() {
             depth++;
             if (depth > MAX_DEPTH) {
-                throw new IllegalArgumentException("Max JSON recursion depth exceeded: " + MAX_DEPTH);
+                throw new IllegalArgumentException(
+                        "Max JSON recursion depth exceeded: " + MAX_DEPTH);
             }
         }
 
@@ -413,7 +452,8 @@ public final class SimpleJson {
 
         char peek() {
             if (!hasMore()) {
-                throw new IllegalArgumentException("Unexpected end of JSON input at index " + index);
+                throw new IllegalArgumentException(
+                        "Unexpected end of JSON input at index " + index);
             }
             return src.charAt(index);
         }
@@ -427,7 +467,8 @@ public final class SimpleJson {
         void consume(char expected) {
             char c = consume();
             if (c != expected) {
-                throw new IllegalArgumentException("Expected '" + expected + "' but got '" + c + "' at index " + (index - 1));
+                throw new IllegalArgumentException(
+                        "Expected '" + expected + "' but got '" + c + "' at index " + (index - 1));
             }
         }
 
@@ -454,4 +495,3 @@ public final class SimpleJson {
         }
     }
 }
-

@@ -1,15 +1,16 @@
 package dev.jvmmcp.core.jmx;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import dev.jvmmcp.core.model.BlockedThreadDetail;
 import dev.jvmmcp.core.model.DeadlockReport;
 import dev.jvmmcp.core.model.ThreadDump;
 import dev.jvmmcp.core.model.ThreadSummary;
-import org.awaitility.Awaitility;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
@@ -20,13 +21,11 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.management.MBeanServerConnection;
 import javax.management.ObjectName;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import org.awaitility.Awaitility;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 class ThreadMXBeanClientTest {
 
@@ -60,8 +59,8 @@ class ThreadMXBeanClientTest {
     @DisplayName("Constructor throws IllegalArgumentException when MBeanServerConnection is null")
     void shouldThrowWhenMbscIsNull() {
         assertThatThrownBy(() -> new ThreadMXBeanClient(null))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("MBeanServerConnection cannot be null");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("MBeanServerConnection cannot be null");
     }
 
     @Test
@@ -100,14 +99,19 @@ class ThreadMXBeanClientTest {
         ThreadMXBean mockBean = mock(ThreadMXBean.class);
         when(mockBean.dumpAllThreads(true, true)).thenReturn(null);
 
-        try (org.mockito.MockedStatic<ManagementFactory> mfStatic = org.mockito.Mockito.mockStatic(ManagementFactory.class)) {
-            mfStatic.when(() -> ManagementFactory.newPlatformMXBeanProxy(
-                    any(), anyString(),
-                    org.mockito.ArgumentMatchers.eq(ThreadMXBean.class)))
-                .thenReturn(mockBean);
+        try (org.mockito.MockedStatic<ManagementFactory> mfStatic =
+                org.mockito.Mockito.mockStatic(ManagementFactory.class)) {
+            mfStatic.when(
+                            () ->
+                                    ManagementFactory.newPlatformMXBeanProxy(
+                                            any(),
+                                            anyString(),
+                                            org.mockito.ArgumentMatchers.eq(ThreadMXBean.class)))
+                    .thenReturn(mockBean);
 
-            ThreadDump dump = new ThreadMXBeanClient(connectionManager.getMBeanServerConnection(), null)
-                .getThreadDump(42L);
+            ThreadDump dump =
+                    new ThreadMXBeanClient(connectionManager.getMBeanServerConnection(), null)
+                            .getThreadDump(42L);
 
             assertThat(dump.pid()).isEqualTo(42L);
             assertThat(dump.timestamp()).isNotNull();
@@ -132,13 +136,16 @@ class ThreadMXBeanClientTest {
     }
 
     @Test
-    @DisplayName("getThreadDump marks virtualThreads as empty list when virtual thread reader returns zero threads")
+    @DisplayName(
+            "getThreadDump marks virtualThreads as empty list when virtual thread reader returns zero threads")
     void shouldReturnEmptyVirtualThreadsWhenReaderReturnsZero() throws IOException {
-        VirtualThreadDumpReader mockReader = org.mockito.Mockito.mock(VirtualThreadDumpReader.class);
+        VirtualThreadDumpReader mockReader =
+                org.mockito.Mockito.mock(VirtualThreadDumpReader.class);
         org.mockito.Mockito.when(mockReader.readVirtualThreads(org.mockito.ArgumentMatchers.any()))
-            .thenReturn(Optional.of(List.of()));
+                .thenReturn(Optional.of(List.of()));
 
-        ThreadMXBeanClient client = new ThreadMXBeanClient(connectionManager.getMBeanServerConnection(), mockReader);
+        ThreadMXBeanClient client =
+                new ThreadMXBeanClient(connectionManager.getMBeanServerConnection(), mockReader);
         ThreadDump dump = client.getThreadDump(42L);
 
         assertThat(dump.virtualThreads()).isNotNull().isEmpty();
@@ -146,13 +153,16 @@ class ThreadMXBeanClientTest {
     }
 
     @Test
-    @DisplayName("getThreadDump marks virtualThreads as null when virtual thread reader returns empty or is unavailable")
+    @DisplayName(
+            "getThreadDump marks virtualThreads as null when virtual thread reader returns empty or is unavailable")
     void shouldReturnNullVirtualThreadsWhenReaderUnavailable() throws IOException {
-        VirtualThreadDumpReader mockReader = org.mockito.Mockito.mock(VirtualThreadDumpReader.class);
+        VirtualThreadDumpReader mockReader =
+                org.mockito.Mockito.mock(VirtualThreadDumpReader.class);
         org.mockito.Mockito.when(mockReader.readVirtualThreads(org.mockito.ArgumentMatchers.any()))
-            .thenReturn(Optional.empty());
+                .thenReturn(Optional.empty());
 
-        ThreadMXBeanClient client = new ThreadMXBeanClient(connectionManager.getMBeanServerConnection(), mockReader);
+        ThreadMXBeanClient client =
+                new ThreadMXBeanClient(connectionManager.getMBeanServerConnection(), mockReader);
         ThreadDump dump = client.getThreadDump(42L);
 
         assertThat(dump.virtualThreads()).isNull();
@@ -166,18 +176,22 @@ class ThreadMXBeanClientTest {
         long[] deadlockedIds = {11L, 12L};
         when(mockBean.findDeadlockedThreads()).thenReturn(deadlockedIds);
         when(mockBean.getThreadInfo(deadlockedIds, true, true))
-            .thenReturn(null, new java.lang.management.ThreadInfo[0]);
+                .thenReturn(null, new java.lang.management.ThreadInfo[0]);
 
-        try (org.mockito.MockedStatic<ManagementFactory> mfStatic = org.mockito.Mockito.mockStatic(ManagementFactory.class)) {
-            mfStatic.when(() -> ManagementFactory.newPlatformMXBeanProxy(
-                    any(), anyString(),
-                    org.mockito.ArgumentMatchers.eq(ThreadMXBean.class)))
-                .thenReturn(mockBean);
+        try (org.mockito.MockedStatic<ManagementFactory> mfStatic =
+                org.mockito.Mockito.mockStatic(ManagementFactory.class)) {
+            mfStatic.when(
+                            () ->
+                                    ManagementFactory.newPlatformMXBeanProxy(
+                                            any(),
+                                            anyString(),
+                                            org.mockito.ArgumentMatchers.eq(ThreadMXBean.class)))
+                    .thenReturn(mockBean);
 
             assertThat(threadClient.detectDeadlocks()).isEqualTo(DeadlockReport.none());
             assertThat(threadClient.detectDeadlocks()).isEqualTo(DeadlockReport.none());
             org.mockito.Mockito.verify(mockBean, org.mockito.Mockito.times(2))
-                .getThreadInfo(deadlockedIds, true, true);
+                    .getThreadInfo(deadlockedIds, true, true);
         }
     }
 
@@ -199,44 +213,52 @@ class ThreadMXBeanClientTest {
         CountDownLatch lockAcquired = new CountDownLatch(1);
         AtomicBoolean keepHolding = new AtomicBoolean(true);
 
-        Thread holdingThread = new Thread(() -> {
-            synchronized (lock) {
-                lockAcquired.countDown();
-                while (keepHolding.get()) {
-                    try {
-                        Thread.sleep(20);
-                    } catch (InterruptedException ignored) {
-                        break;
-                    }
-                }
-            }
-        }, "holding-thread");
+        Thread holdingThread =
+                new Thread(
+                        () -> {
+                            synchronized (lock) {
+                                lockAcquired.countDown();
+                                while (keepHolding.get()) {
+                                    try {
+                                        Thread.sleep(20);
+                                    } catch (InterruptedException ignored) {
+                                        break;
+                                    }
+                                }
+                            }
+                        },
+                        "holding-thread");
 
-        Thread blockedThread = new Thread(() -> {
-            try {
-                lockAcquired.await();
-            } catch (InterruptedException ignored) {}
-            synchronized (lock) {
-                // Entered after release
-            }
-        }, "blocked-worker-thread");
+        Thread blockedThread =
+                new Thread(
+                        () -> {
+                            try {
+                                lockAcquired.await();
+                            } catch (InterruptedException ignored) {
+                            }
+                            synchronized (lock) {
+                                // Entered after release
+                            }
+                        },
+                        "blocked-worker-thread");
 
         holdingThread.start();
         blockedThread.start();
 
         try {
             Awaitility.await()
-                .atMost(Duration.ofSeconds(5))
-                .pollInterval(Duration.ofMillis(20))
-                .until(() -> blockedThread.getState() == Thread.State.BLOCKED);
+                    .atMost(Duration.ofSeconds(5))
+                    .pollInterval(Duration.ofMillis(20))
+                    .until(() -> blockedThread.getState() == Thread.State.BLOCKED);
 
             List<BlockedThreadDetail> blockedList = threadClient.findBlockedThreads(0);
 
             assertThat(blockedList).isNotEmpty();
-            BlockedThreadDetail detail = blockedList.stream()
-                .filter(b -> "blocked-worker-thread".equals(b.threadName()))
-                .findFirst()
-                .orElse(null);
+            BlockedThreadDetail detail =
+                    blockedList.stream()
+                            .filter(b -> "blocked-worker-thread".equals(b.threadName()))
+                            .findFirst()
+                            .orElse(null);
 
             assertThat(detail).isNotNull();
             assertThat(detail.lockOwnerName()).isEqualTo("holding-thread");
@@ -256,32 +278,49 @@ class ThreadMXBeanClientTest {
         CountDownLatch latch = new CountDownLatch(1);
         Object lock = new Object();
 
-        Thread timed = new Thread(() -> {
-            try { Thread.sleep(10000); } catch (InterruptedException e) {}
-        });
+        Thread timed =
+                new Thread(
+                        () -> {
+                            try {
+                                Thread.sleep(10000);
+                            } catch (InterruptedException e) {
+                            }
+                        });
         timed.start();
 
-        Thread waiting = new Thread(() -> {
-            synchronized (lock) {
-                try { lock.wait(); } catch (InterruptedException e) {}
-            }
-        });
+        Thread waiting =
+                new Thread(
+                        () -> {
+                            synchronized (lock) {
+                                try {
+                                    lock.wait();
+                                } catch (InterruptedException e) {
+                                }
+                            }
+                        });
         waiting.start();
 
-        Thread owner = new Thread(() -> {
-            synchronized (lock) {
-                latch.countDown();
-                try { Thread.sleep(10000); } catch (InterruptedException e) {}
-            }
-        });
+        Thread owner =
+                new Thread(
+                        () -> {
+                            synchronized (lock) {
+                                latch.countDown();
+                                try {
+                                    Thread.sleep(10000);
+                                } catch (InterruptedException e) {
+                                }
+                            }
+                        });
         owner.start();
 
         latch.await();
-        Thread blocked = new Thread(() -> {
-            synchronized (lock) {
-               // blocks
-            }
-        });
+        Thread blocked =
+                new Thread(
+                        () -> {
+                            synchronized (lock) {
+                                // blocks
+                            }
+                        });
         blocked.start();
 
         Thread.sleep(100);
@@ -302,15 +341,20 @@ class ThreadMXBeanClientTest {
     @Test
     @DisplayName("detectDeadlocks handles null return gracefully")
     void shouldHandleNullDeadlockedThreads() throws Exception {
-        java.lang.management.ThreadMXBean mockBean = org.mockito.Mockito.mock(java.lang.management.ThreadMXBean.class);
+        java.lang.management.ThreadMXBean mockBean =
+                org.mockito.Mockito.mock(java.lang.management.ThreadMXBean.class);
         org.mockito.Mockito.when(mockBean.findDeadlockedThreads()).thenReturn(null);
 
-        try (org.mockito.MockedStatic<ManagementFactory> mfStatic = org.mockito.Mockito.mockStatic(ManagementFactory.class)) {
-            mfStatic.when(() -> ManagementFactory.newPlatformMXBeanProxy(
-                    org.mockito.ArgumentMatchers.any(),
-                    org.mockito.ArgumentMatchers.anyString(),
-                    org.mockito.ArgumentMatchers.eq(java.lang.management.ThreadMXBean.class)))
-                .thenReturn(mockBean);
+        try (org.mockito.MockedStatic<ManagementFactory> mfStatic =
+                org.mockito.Mockito.mockStatic(ManagementFactory.class)) {
+            mfStatic.when(
+                            () ->
+                                    ManagementFactory.newPlatformMXBeanProxy(
+                                            org.mockito.ArgumentMatchers.any(),
+                                            org.mockito.ArgumentMatchers.anyString(),
+                                            org.mockito.ArgumentMatchers.eq(
+                                                    java.lang.management.ThreadMXBean.class)))
+                    .thenReturn(mockBean);
 
             DeadlockReport report = threadClient.detectDeadlocks();
             assertThat(report.status()).isEqualTo("NONE");
@@ -318,18 +362,23 @@ class ThreadMXBeanClientTest {
     }
 
     @Test
-    @DisplayName("findBlockedThreads returns an empty list and restores monitoring when the dump is null")
+    @DisplayName(
+            "findBlockedThreads returns an empty list and restores monitoring when the dump is null")
     void shouldHandleNullBlockedThreadDump() throws Exception {
         ThreadMXBean mockBean = mock(ThreadMXBean.class);
         when(mockBean.isThreadContentionMonitoringSupported()).thenReturn(true);
         when(mockBean.isThreadContentionMonitoringEnabled()).thenReturn(false);
         when(mockBean.dumpAllThreads(true, true)).thenReturn(null);
 
-        try (org.mockito.MockedStatic<ManagementFactory> mfStatic = org.mockito.Mockito.mockStatic(ManagementFactory.class)) {
-            mfStatic.when(() -> ManagementFactory.newPlatformMXBeanProxy(
-                    any(), anyString(),
-                    org.mockito.ArgumentMatchers.eq(ThreadMXBean.class)))
-                .thenReturn(mockBean);
+        try (org.mockito.MockedStatic<ManagementFactory> mfStatic =
+                org.mockito.Mockito.mockStatic(ManagementFactory.class)) {
+            mfStatic.when(
+                            () ->
+                                    ManagementFactory.newPlatformMXBeanProxy(
+                                            any(),
+                                            anyString(),
+                                            org.mockito.ArgumentMatchers.eq(ThreadMXBean.class)))
+                    .thenReturn(mockBean);
 
             assertThat(threadClient.findBlockedThreads(100)).isEmpty();
             org.mockito.Mockito.verify(mockBean).setThreadContentionMonitoringEnabled(true);
@@ -340,17 +389,23 @@ class ThreadMXBeanClientTest {
     @Test
     @DisplayName("findBlockedThreads enables contention monitoring when supported")
     void shouldEnableContentionMonitoringWhenSupported() throws Exception {
-        java.lang.management.ThreadMXBean mockBean = org.mockito.Mockito.mock(java.lang.management.ThreadMXBean.class);
+        java.lang.management.ThreadMXBean mockBean =
+                org.mockito.Mockito.mock(java.lang.management.ThreadMXBean.class);
         org.mockito.Mockito.when(mockBean.isThreadContentionMonitoringSupported()).thenReturn(true);
         org.mockito.Mockito.when(mockBean.isThreadContentionMonitoringEnabled()).thenReturn(false);
-        org.mockito.Mockito.when(mockBean.dumpAllThreads(true, true)).thenReturn(new java.lang.management.ThreadInfo[0]);
+        org.mockito.Mockito.when(mockBean.dumpAllThreads(true, true))
+                .thenReturn(new java.lang.management.ThreadInfo[0]);
 
-        try (org.mockito.MockedStatic<ManagementFactory> mfStatic = org.mockito.Mockito.mockStatic(ManagementFactory.class)) {
-            mfStatic.when(() -> ManagementFactory.newPlatformMXBeanProxy(
-                    org.mockito.ArgumentMatchers.any(),
-                    org.mockito.ArgumentMatchers.anyString(),
-                    org.mockito.ArgumentMatchers.eq(java.lang.management.ThreadMXBean.class)))
-                .thenReturn(mockBean);
+        try (org.mockito.MockedStatic<ManagementFactory> mfStatic =
+                org.mockito.Mockito.mockStatic(ManagementFactory.class)) {
+            mfStatic.when(
+                            () ->
+                                    ManagementFactory.newPlatformMXBeanProxy(
+                                            org.mockito.ArgumentMatchers.any(),
+                                            org.mockito.ArgumentMatchers.anyString(),
+                                            org.mockito.ArgumentMatchers.eq(
+                                                    java.lang.management.ThreadMXBean.class)))
+                    .thenReturn(mockBean);
 
             assertThat(threadClient.findBlockedThreads(0)).isEmpty();
             org.mockito.Mockito.verify(mockBean).setThreadContentionMonitoringEnabled(true);
@@ -360,11 +415,15 @@ class ThreadMXBeanClientTest {
     @Test
     @DisplayName("findBlockedThreads reports unmonitored contention when monitoring is unsupported")
     void shouldReportUnmonitoredContentionWhenUnsupported() throws Exception {
-        java.lang.management.ThreadMXBean mockBean = org.mockito.Mockito.mock(java.lang.management.ThreadMXBean.class);
-        org.mockito.Mockito.when(mockBean.isThreadContentionMonitoringSupported()).thenReturn(false);
+        java.lang.management.ThreadMXBean mockBean =
+                org.mockito.Mockito.mock(java.lang.management.ThreadMXBean.class);
+        org.mockito.Mockito.when(mockBean.isThreadContentionMonitoringSupported())
+                .thenReturn(false);
 
-        java.lang.management.ThreadInfo blockedInfo = org.mockito.Mockito.mock(java.lang.management.ThreadInfo.class);
-        org.mockito.Mockito.when(blockedInfo.getThreadState()).thenReturn(java.lang.Thread.State.BLOCKED);
+        java.lang.management.ThreadInfo blockedInfo =
+                org.mockito.Mockito.mock(java.lang.management.ThreadInfo.class);
+        org.mockito.Mockito.when(blockedInfo.getThreadState())
+                .thenReturn(java.lang.Thread.State.BLOCKED);
         org.mockito.Mockito.when(blockedInfo.getBlockedTime()).thenReturn(-1L);
         org.mockito.Mockito.when(blockedInfo.getThreadId()).thenReturn(7L);
         org.mockito.Mockito.when(blockedInfo.getThreadName()).thenReturn("blocked-worker");
@@ -372,22 +431,29 @@ class ThreadMXBeanClientTest {
         org.mockito.Mockito.when(blockedInfo.getLockName()).thenReturn("lock@0x1");
         org.mockito.Mockito.when(blockedInfo.getLockOwnerId()).thenReturn(-1L);
         org.mockito.Mockito.when(blockedInfo.getLockOwnerName()).thenReturn(null);
-        org.mockito.Mockito.when(blockedInfo.getStackTrace()).thenReturn(new java.lang.StackTraceElement[0]);
-        org.mockito.Mockito.when(mockBean.dumpAllThreads(true, true)).thenReturn(new java.lang.management.ThreadInfo[]{blockedInfo});
+        org.mockito.Mockito.when(blockedInfo.getStackTrace())
+                .thenReturn(new java.lang.StackTraceElement[0]);
+        org.mockito.Mockito.when(mockBean.dumpAllThreads(true, true))
+                .thenReturn(new java.lang.management.ThreadInfo[] {blockedInfo});
 
-        try (org.mockito.MockedStatic<ManagementFactory> mfStatic = org.mockito.Mockito.mockStatic(ManagementFactory.class)) {
-            mfStatic.when(() -> ManagementFactory.newPlatformMXBeanProxy(
-                    org.mockito.ArgumentMatchers.any(),
-                    org.mockito.ArgumentMatchers.anyString(),
-                    org.mockito.ArgumentMatchers.eq(java.lang.management.ThreadMXBean.class)))
-                .thenReturn(mockBean);
+        try (org.mockito.MockedStatic<ManagementFactory> mfStatic =
+                org.mockito.Mockito.mockStatic(ManagementFactory.class)) {
+            mfStatic.when(
+                            () ->
+                                    ManagementFactory.newPlatformMXBeanProxy(
+                                            org.mockito.ArgumentMatchers.any(),
+                                            org.mockito.ArgumentMatchers.anyString(),
+                                            org.mockito.ArgumentMatchers.eq(
+                                                    java.lang.management.ThreadMXBean.class)))
+                    .thenReturn(mockBean);
 
             java.util.List<BlockedThreadDetail> blocked = threadClient.findBlockedThreads(0);
 
             assertThat(blocked).hasSize(1);
             assertThat(blocked.get(0).blockedTimeMs()).isNull();
             assertThat(blocked.get(0).blockedCount()).isEqualTo(3L);
-            org.mockito.Mockito.verify(mockBean, org.mockito.Mockito.never()).setThreadContentionMonitoringEnabled(true);
+            org.mockito.Mockito.verify(mockBean, org.mockito.Mockito.never())
+                    .setThreadContentionMonitoringEnabled(true);
         }
     }
 
@@ -395,7 +461,8 @@ class ThreadMXBeanClientTest {
     @DisplayName("findBlockedThreads enables contention monitoring on the live JVM when supported")
     void shouldEnableContentionMonitoringOnLiveJvm() throws Exception {
         java.lang.management.ThreadMXBean mxBean = ManagementFactory.getThreadMXBean();
-        org.junit.jupiter.api.Assumptions.assumeTrue(mxBean.isThreadContentionMonitoringSupported());
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+                mxBean.isThreadContentionMonitoringSupported());
         mxBean.setThreadContentionMonitoringEnabled(false);
         try {
             threadClient.findBlockedThreads(0);

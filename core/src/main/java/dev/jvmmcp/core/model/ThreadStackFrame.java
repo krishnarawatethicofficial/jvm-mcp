@@ -1,33 +1,29 @@
 package dev.jvmmcp.core.model;
 
-/**
- * Individual frame in a thread execution stack trace.
- */
+/** Individual frame in a thread execution stack trace. */
 public record ThreadStackFrame(
-    String className,
-    String methodName,
-    String fileName,
-    int lineNumber,
-    boolean isNativeMethod
-) {
+        String className,
+        String methodName,
+        String fileName,
+        int lineNumber,
+        boolean isNativeMethod) {
     public static ThreadStackFrame from(StackTraceElement element) {
         if (element == null) {
             return new ThreadStackFrame("Unknown", "unknown", null, -1, false);
         }
         return new ThreadStackFrame(
-            element.getClassName(),
-            element.getMethodName(),
-            element.getFileName(),
-            element.getLineNumber(),
-            element.isNativeMethod()
-        );
+                element.getClassName(),
+                element.getMethodName(),
+                element.getFileName(),
+                element.getLineNumber(),
+                element.isNativeMethod());
     }
 
     /**
      * Parses a stack frame string (such as those emitted by HotSpot JSON thread dumps).
      *
-     * @param text string representation of a stack trace line, e.g.
-     *             {@code "java.base/java.lang.Thread.getStackTrace(Thread.java:2451)"}
+     * @param text string representation of a stack trace line, e.g. {@code
+     *     "java.base/java.lang.Thread.getStackTrace(Thread.java:2451)"}
      * @return parsed {@link ThreadStackFrame}
      */
     public static ThreadStackFrame parse(String text) {
@@ -48,8 +44,10 @@ public record ThreadStackFrame(
         String classAndMethod = s.substring(0, openParen);
         int lastDot = classAndMethod.lastIndexOf('.');
         String className = lastDot > 0 ? classAndMethod.substring(0, lastDot) : "Unknown";
-        String methodName = lastDot >= 0 && lastDot < classAndMethod.length() - 1
-            ? classAndMethod.substring(lastDot + 1) : classAndMethod;
+        String methodName =
+                lastDot >= 0 && lastDot < classAndMethod.length() - 1
+                        ? classAndMethod.substring(lastDot + 1)
+                        : classAndMethod;
 
         String sourceInfo = s.substring(openParen + 1, closeParen).trim();
         if ("Native Method".equalsIgnoreCase(sourceInfo)) {
@@ -67,7 +65,8 @@ public record ThreadStackFrame(
             } catch (NumberFormatException ignored) {
             }
         }
-        return new ThreadStackFrame(className, methodName, sourceInfo.isEmpty() ? null : sourceInfo, -1, false);
+        return new ThreadStackFrame(
+                className, methodName, sourceInfo.isEmpty() ? null : sourceInfo, -1, false);
     }
 
     @Override

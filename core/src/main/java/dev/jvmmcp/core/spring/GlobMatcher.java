@@ -2,9 +2,7 @@ package dev.jvmmcp.core.spring;
 
 import java.util.regex.Pattern;
 
-/**
- * Utility for case-insensitive glob pattern matching (*, ?).
- */
+/** Utility for case-insensitive glob pattern matching (*, ?). */
 public final class GlobMatcher {
 
     private GlobMatcher() {}
@@ -28,7 +26,8 @@ public final class GlobMatcher {
             return Pattern.compile(".*");
         }
         if (globPattern.length() > 256) {
-            throw new IllegalArgumentException("Glob pattern exceeds maximum length of 256 characters");
+            throw new IllegalArgumentException(
+                    "Glob pattern exceeds maximum length of 256 characters");
         }
         StringBuilder regex = new StringBuilder("^");
         boolean lastWasStar = false;

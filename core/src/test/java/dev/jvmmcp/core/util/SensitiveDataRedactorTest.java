@@ -1,9 +1,9 @@
 package dev.jvmmcp.core.util;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 class SensitiveDataRedactorTest {
 
@@ -28,12 +28,13 @@ class SensitiveDataRedactorTest {
     @Test
     @DisplayName("Redacts JSON key-value secrets")
     void testJsonSecrets() {
-        String json = "{\"username\": \"admin\", \"password\": \"SuperSecret123!\", \"apiKey\": \"ak_live_abcdef123456\"}";
+        String json =
+                "{\"username\": \"admin\", \"password\": \"SuperSecret123!\", \"apiKey\": \"ak_live_abcdef123456\"}";
         String redacted = SensitiveDataRedactor.redact(json);
         assertThat(redacted)
-            .contains("\"password\": \"***\"")
-            .contains("\"apiKey\": \"***\"")
-            .contains("\"username\": \"admin\"");
+                .contains("\"password\": \"***\"")
+                .contains("\"apiKey\": \"***\"")
+                .contains("\"username\": \"admin\"");
     }
 
     @Test
@@ -42,10 +43,10 @@ class SensitiveDataRedactorTest {
         String text = "Connecting with password=mySecretPass and token=xyz789";
         String redacted = SensitiveDataRedactor.redact(text);
         assertThat(redacted)
-            .contains("password=***")
-            .contains("token=***")
-            .doesNotContain("mySecretPass")
-            .doesNotContain("xyz789");
+                .contains("password=***")
+                .contains("token=***")
+                .doesNotContain("mySecretPass")
+                .doesNotContain("xyz789");
     }
 
     @Test
@@ -53,8 +54,8 @@ class SensitiveDataRedactorTest {
     void testJdbcUrlPassword() {
         String url = "Connecting to jdbc:postgresql://postgres:secretDbPass123@localhost:5432/mydb";
         assertThat(SensitiveDataRedactor.redact(url))
-            .contains("jdbc:postgresql://postgres:***@localhost:5432/mydb")
-            .doesNotContain("secretDbPass123");
+                .contains("jdbc:postgresql://postgres:***@localhost:5432/mydb")
+                .doesNotContain("secretDbPass123");
     }
 
     @Test
@@ -66,8 +67,8 @@ class SensitiveDataRedactorTest {
         String jwt = String.join(".", part1, part2, part3);
         String log = "Active session token: " + jwt + " for user";
         assertThat(SensitiveDataRedactor.redact(log))
-            .contains("Active session token: *** for user")
-            .doesNotContain(part3);
+                .contains("Active session token: *** for user")
+                .doesNotContain(part3);
     }
 
     @Test
@@ -97,8 +98,10 @@ class SensitiveDataRedactorTest {
         assertThat(sanitizedList.get(0)).isEqualTo("Authorization: Bearer ***");
         assertThat(sanitizedList.get(2)).isEqualTo(12345);
 
-        java.util.Map<String, Object> sanitizedInner = (java.util.Map<String, Object>) sanitizedList.get(1);
-        assertThat(sanitizedInner.get("dbUrl")).isEqualTo("jdbc:postgresql://appuser:***@localhost:5432/appdb");
+        java.util.Map<String, Object> sanitizedInner =
+                (java.util.Map<String, Object>) sanitizedList.get(1);
+        assertThat(sanitizedInner.get("dbUrl"))
+                .isEqualTo("jdbc:postgresql://appuser:***@localhost:5432/appdb");
         assertThat(sanitizedInner.get("normalKey")).isEqualTo("harmlessValue");
     }
 }

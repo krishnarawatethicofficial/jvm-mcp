@@ -2,7 +2,6 @@ package dev.jvmmcp.server.tool;
 
 import dev.jvmmcp.core.pg.PostgresSchemaReader;
 import dev.jvmmcp.core.util.SimpleJson;
-
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,7 +29,8 @@ public class PostgresToolHandler implements ToolHandler {
         this(readerFactory, System::getenv);
     }
 
-    public PostgresToolHandler(SchemaReaderFactory readerFactory, Function<String, String> envProvider) {
+    public PostgresToolHandler(
+            SchemaReaderFactory readerFactory, Function<String, String> envProvider) {
         this.readerFactory = readerFactory;
         this.envProvider = envProvider;
     }
@@ -43,48 +43,89 @@ public class PostgresToolHandler implements ToolHandler {
     @Override
     public List<Map<String, Object>> toolDefinitions() {
         return List.of(
-            Map.of(
-                "name", "inspect_pg_schema",
-                "description", "Inspects PostgreSQL schema, tables, indexes, and foreign keys",
-                "inputSchema", Map.of(
-                    "type", "object",
-                    "properties", Map.of(
-                        "url", Map.of("type", "string", "description", "JDBC URL (e.g. jdbc:postgresql://localhost:5432/db)"),
-                        "schema", Map.of("type", "string", "description", "Target schema (default: public)")
-                    ),
-                    "required", List.of("url")
-                )
-            ),
-            Map.of(
-                "name", "find_missing_indexes",
-                "description", "Finds missing indexes by analyzing seq_scan and idx_scan metrics",
-                "inputSchema", Map.of(
-                    "type", "object",
-                    "properties", Map.of(
-                        "url", Map.of("type", "string", "description", "JDBC URL (e.g. jdbc:postgresql://localhost:5432/db)"),
-                        "schema", Map.of("type", "string", "description", "Target schema (default: public)"),
-                        "minTableSizeMb", Map.of("type", "integer", "minimum", 0, "default", 1,
-                            "description", "Minimum table size in MiB (default: 1, 0 disables the size filter)")
-                    ),
-                    "required", List.of("url")
-                )
-            ),
-            Map.of(
-                "name", "find_slow_queries",
-                "description", "Finds slow queries using pg_stat_statements",
-                "inputSchema", Map.of(
-                    "type", "object",
-                    "properties", Map.of(
-                        "url", Map.of("type", "string", "description", "JDBC URL (e.g. jdbc:postgresql://localhost:5432/db)"),
-                        "limit", Map.of("type", "integer", "minimum", 1,
-                            "maximum", PostgresSchemaReader.MAX_SLOW_QUERY_LIMIT,
-                            "default", PostgresSchemaReader.DEFAULT_SLOW_QUERY_LIMIT,
-                            "description", "Maximum number of slow queries to return (default: 20, max: 100)")
-                    ),
-                    "required", List.of("url")
-                )
-            )
-        );
+                Map.of(
+                        "name", "inspect_pg_schema",
+                        "description",
+                                "Inspects PostgreSQL schema, tables, indexes, and foreign keys",
+                        "inputSchema",
+                                Map.of(
+                                        "type", "object",
+                                        "properties",
+                                                Map.of(
+                                                        "url",
+                                                                Map.of(
+                                                                        "type",
+                                                                        "string",
+                                                                        "description",
+                                                                        "JDBC URL (e.g. jdbc:postgresql://localhost:5432/db)"),
+                                                        "schema",
+                                                                Map.of(
+                                                                        "type",
+                                                                        "string",
+                                                                        "description",
+                                                                        "Target schema (default: public)")),
+                                        "required", List.of("url"))),
+                Map.of(
+                        "name", "find_missing_indexes",
+                        "description",
+                                "Finds missing indexes by analyzing seq_scan and idx_scan metrics",
+                        "inputSchema",
+                                Map.of(
+                                        "type", "object",
+                                        "properties",
+                                                Map.of(
+                                                        "url",
+                                                                Map.of(
+                                                                        "type",
+                                                                        "string",
+                                                                        "description",
+                                                                        "JDBC URL (e.g. jdbc:postgresql://localhost:5432/db)"),
+                                                        "schema",
+                                                                Map.of(
+                                                                        "type",
+                                                                        "string",
+                                                                        "description",
+                                                                        "Target schema (default: public)"),
+                                                        "minTableSizeMb",
+                                                                Map.of(
+                                                                        "type",
+                                                                        "integer",
+                                                                        "minimum",
+                                                                        0,
+                                                                        "default",
+                                                                        1,
+                                                                        "description",
+                                                                        "Minimum table size in MiB (default: 1, 0 disables the size filter)")),
+                                        "required", List.of("url"))),
+                Map.of(
+                        "name", "find_slow_queries",
+                        "description", "Finds slow queries using pg_stat_statements",
+                        "inputSchema",
+                                Map.of(
+                                        "type", "object",
+                                        "properties",
+                                                Map.of(
+                                                        "url",
+                                                                Map.of(
+                                                                        "type",
+                                                                        "string",
+                                                                        "description",
+                                                                        "JDBC URL (e.g. jdbc:postgresql://localhost:5432/db)"),
+                                                        "limit",
+                                                                Map.of(
+                                                                        "type",
+                                                                        "integer",
+                                                                        "minimum",
+                                                                        1,
+                                                                        "maximum",
+                                                                        PostgresSchemaReader
+                                                                                .MAX_SLOW_QUERY_LIMIT,
+                                                                        "default",
+                                                                        PostgresSchemaReader
+                                                                                .DEFAULT_SLOW_QUERY_LIMIT,
+                                                                        "description",
+                                                                        "Maximum number of slow queries to return (default: 20, max: 100)")),
+                                        "required", List.of("url"))));
     }
 
     @Override
@@ -99,7 +140,12 @@ public class PostgresToolHandler implements ToolHandler {
             if ("inspect_pg_schema".equals(toolName)) {
                 String rawSchema = ToolArgs.getStringArg(args, "schema", false);
                 String schema = PostgresSchemaReader.validateSchemaName(rawSchema);
-                content.add(Map.of("type", "text", "text", SimpleJson.toJson(reader.inspectSchema(schema))));
+                content.add(
+                        Map.of(
+                                "type",
+                                "text",
+                                "text",
+                                SimpleJson.toJson(reader.inspectSchema(schema))));
             } else if ("find_missing_indexes".equals(toolName)) {
                 String rawSchema = ToolArgs.getStringArg(args, "schema", false);
                 String schema = PostgresSchemaReader.validateSchemaName(rawSchema);
@@ -108,22 +154,42 @@ public class PostgresToolHandler implements ToolHandler {
                     long minTableSizeMb = ToolArgs.getLongArg(args, "minTableSizeMb", true);
                     boolean wholeNumber;
                     try {
-                        wholeNumber = new BigDecimal(args.get("minTableSizeMb").toString())
-                            .compareTo(BigDecimal.valueOf(minTableSizeMb)) == 0;
+                        wholeNumber =
+                                new BigDecimal(args.get("minTableSizeMb").toString())
+                                                .compareTo(BigDecimal.valueOf(minTableSizeMb))
+                                        == 0;
                     } catch (NumberFormatException e) {
                         wholeNumber = false;
                     }
-                    if (minTableSizeMb < 0 || minTableSizeMb > Long.MAX_VALUE / (1024L * 1024L)
-                        || !wholeNumber) {
-                        throw new IllegalArgumentException("Argument 'minTableSizeMb' must be a non-negative integer that fits in bytes");
+                    if (minTableSizeMb < 0
+                            || minTableSizeMb > Long.MAX_VALUE / (1024L * 1024L)
+                            || !wholeNumber) {
+                        throw new IllegalArgumentException(
+                                "Argument 'minTableSizeMb' must be a non-negative integer that fits in bytes");
                     }
                     minTableSizeBytes = minTableSizeMb * 1024L * 1024L;
                 }
-                content.add(Map.of("type", "text", "text", SimpleJson.toJson(reader.findMissingIndexes(schema, minTableSizeBytes))));
+                content.add(
+                        Map.of(
+                                "type",
+                                "text",
+                                "text",
+                                SimpleJson.toJson(
+                                        reader.findMissingIndexes(schema, minTableSizeBytes))));
             } else if ("find_slow_queries".equals(toolName)) {
-                int limit = ToolArgs.getIntArg(args, "limit", PostgresSchemaReader.DEFAULT_SLOW_QUERY_LIMIT,
-                    1, PostgresSchemaReader.MAX_SLOW_QUERY_LIMIT);
-                content.add(Map.of("type", "text", "text", SimpleJson.toJson(reader.findSlowQueries(limit))));
+                int limit =
+                        ToolArgs.getIntArg(
+                                args,
+                                "limit",
+                                PostgresSchemaReader.DEFAULT_SLOW_QUERY_LIMIT,
+                                1,
+                                PostgresSchemaReader.MAX_SLOW_QUERY_LIMIT);
+                content.add(
+                        Map.of(
+                                "type",
+                                "text",
+                                "text",
+                                SimpleJson.toJson(reader.findSlowQueries(limit))));
             } else {
                 throw new IllegalArgumentException("Unknown postgres tool: " + toolName);
             }

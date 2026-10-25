@@ -1,8 +1,24 @@
 package dev.jvmmcp.core.jmx;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import dev.jvmmcp.core.model.HikariPoolStatistics;
+import java.io.IOException;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Stream;
+import javax.management.AttributeNotFoundException;
+import javax.management.InstanceNotFoundException;
+import javax.management.MBeanServerConnection;
+import javax.management.ObjectName;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -14,23 +30,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import javax.management.MBeanServerConnection;
-import javax.management.AttributeNotFoundException;
-import javax.management.InstanceNotFoundException;
-import javax.management.ObjectName;
-import java.io.IOException;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Stream;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 @ExtendWith(MockitoExtension.class)
 class HikariMXBeanClientTest {
 
@@ -39,8 +38,7 @@ class HikariMXBeanClientTest {
     private HikariDataSource secondDataSource;
     private HikariMXBeanClient hikariClient;
 
-    @Mock
-    private MBeanServerConnection mockMbsc;
+    @Mock private MBeanServerConnection mockMbsc;
 
     @BeforeEach
     void setUp() {
@@ -87,8 +85,8 @@ class HikariMXBeanClientTest {
     @DisplayName("Constructor throws IllegalArgumentException when MBeanServerConnection is null")
     void shouldThrowWhenMbscIsNull() {
         assertThatThrownBy(() -> new HikariMXBeanClient(null))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("MBeanServerConnection cannot be null");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("MBeanServerConnection cannot be null");
     }
 
     @Test
@@ -97,15 +95,16 @@ class HikariMXBeanClientTest {
         List<HikariPoolStatistics> pools = hikariClient.getPools();
 
         assertThat(pools)
-            .extracting(HikariPoolStatistics::poolName)
-            .contains("TestHikariPool", "SecondTestHikariPool");
+                .extracting(HikariPoolStatistics::poolName)
+                .contains("TestHikariPool", "SecondTestHikariPool");
     }
 
     @Test
     @DisplayName("getPools discovers standard comma-separated HikariCP pool names")
     void shouldDiscoverStandardHikariPoolNames() throws Exception {
         ObjectName poolName = new ObjectName("com.zaxxer.hikari:type=Pool,name=StandardPool");
-        ObjectName configName = new ObjectName("com.zaxxer.hikari:type=PoolConfig,name=StandardPool");
+        ObjectName configName =
+                new ObjectName("com.zaxxer.hikari:type=PoolConfig,name=StandardPool");
         when(mockMbsc.queryNames(any(), any())).thenReturn(Set.of(), Set.of(poolName));
         when(mockMbsc.getAttribute(poolName, "ActiveConnections")).thenReturn(1);
         when(mockMbsc.getAttribute(poolName, "IdleConnections")).thenReturn(2);
@@ -124,10 +123,9 @@ class HikariMXBeanClientTest {
         ArgumentCaptor<ObjectName> patternCaptor = ArgumentCaptor.forClass(ObjectName.class);
         verify(mockMbsc, times(2)).queryNames(patternCaptor.capture(), any());
         assertThat(patternCaptor.getAllValues())
-            .containsExactly(
-                new ObjectName("com.zaxxer.hikari:type=Pool (*)"),
-                new ObjectName("com.zaxxer.hikari:type=Pool,*")
-            );
+                .containsExactly(
+                        new ObjectName("com.zaxxer.hikari:type=Pool (*)"),
+                        new ObjectName("com.zaxxer.hikari:type=Pool,*"));
     }
 
     @Test
@@ -135,10 +133,11 @@ class HikariMXBeanClientTest {
     void shouldReadPoolStatistics() throws IOException {
         List<HikariPoolStatistics> pools = hikariClient.getPools();
 
-        HikariPoolStatistics pool = pools.stream()
-            .filter(p -> p.poolName().equals("TestHikariPool"))
-            .findFirst()
-            .orElseThrow();
+        HikariPoolStatistics pool =
+                pools.stream()
+                        .filter(p -> p.poolName().equals("TestHikariPool"))
+                        .findFirst()
+                        .orElseThrow();
 
         assertThat(pool.activeConnections()).isGreaterThanOrEqualTo(0);
         assertThat(pool.idleConnections()).isGreaterThanOrEqualTo(0);
@@ -150,10 +149,9 @@ class HikariMXBeanClientTest {
 
     static Stream<Exception> poolReadFailures() {
         return Stream.of(
-            new InstanceNotFoundException("Pool was removed"),
-            new AttributeNotFoundException("IdleConnections is unavailable"),
-            new IOException("Pool read failed")
-        );
+                new InstanceNotFoundException("Pool was removed"),
+                new AttributeNotFoundException("IdleConnections is unavailable"),
+                new IOException("Pool read failed"));
     }
 
     @ParameterizedTest
@@ -163,10 +161,10 @@ class HikariMXBeanClientTest {
         ObjectName before = new ObjectName("com.zaxxer.hikari:type=Pool (Before)");
         ObjectName broken = new ObjectName("com.zaxxer.hikari:type=Pool (Broken)");
         ObjectName after = new ObjectName("com.zaxxer.hikari:type=Pool,name=After");
-        when(mockMbsc.queryNames(any(), any())).thenReturn(
-            new LinkedHashSet<>(List.of(before, broken)),
-            new LinkedHashSet<>(List.of(broken, after))
-        );
+        when(mockMbsc.queryNames(any(), any()))
+                .thenReturn(
+                        new LinkedHashSet<>(List.of(before, broken)),
+                        new LinkedHashSet<>(List.of(broken, after)));
         stubHealthyPool(before);
         stubHealthyPool(after);
         when(mockMbsc.getAttribute(broken, "ActiveConnections")).thenReturn(1);
@@ -175,8 +173,12 @@ class HikariMXBeanClientTest {
         try (HikariMXBeanClient client = new HikariMXBeanClient(mockMbsc)) {
             List<HikariPoolStatistics> pools = client.getPools();
 
-            assertThat(pools).extracting(HikariPoolStatistics::poolName).containsExactly("Before", "After");
-            assertThat(pools).extracting(HikariPoolStatistics::activeConnections).containsExactly(1, 1);
+            assertThat(pools)
+                    .extracting(HikariPoolStatistics::poolName)
+                    .containsExactly("Before", "After");
+            assertThat(pools)
+                    .extracting(HikariPoolStatistics::activeConnections)
+                    .containsExactly(1, 1);
         }
         verify(mockMbsc).getAttribute(broken, "IdleConnections");
     }
@@ -187,7 +189,7 @@ class HikariMXBeanClientTest {
         ObjectName broken = new ObjectName("com.zaxxer.hikari:type=Pool (Gone)");
         when(mockMbsc.queryNames(any(), any())).thenReturn(Set.of(broken));
         when(mockMbsc.getAttribute(broken, "ActiveConnections"))
-            .thenThrow(new InstanceNotFoundException("Pool was removed"));
+                .thenThrow(new InstanceNotFoundException("Pool was removed"));
 
         try (HikariMXBeanClient client = new HikariMXBeanClient(mockMbsc)) {
             assertThat(client.getPools()).isEmpty();
@@ -199,19 +201,21 @@ class HikariMXBeanClientTest {
         when(mockMbsc.getAttribute(poolName, "IdleConnections")).thenReturn(2);
         when(mockMbsc.getAttribute(poolName, "TotalConnections")).thenReturn(3);
         when(mockMbsc.getAttribute(poolName, "ThreadsAwaitingConnection")).thenReturn(0);
-        ObjectName configName = new ObjectName(poolName.toString().replace("type=Pool", "type=PoolConfig"));
+        ObjectName configName =
+                new ObjectName(poolName.toString().replace("type=Pool", "type=PoolConfig"));
         when(mockMbsc.getAttribute(configName, "MaximumPoolSize")).thenReturn(5);
     }
 
     @Test
     @DisplayName("getPools wraps MBeanServer query exceptions into IOException")
     void shouldWrapQueryExceptions() throws Exception {
-        when(mockMbsc.queryNames(any(), any())).thenThrow(new RuntimeException("JMX query failure"));
+        when(mockMbsc.queryNames(any(), any()))
+                .thenThrow(new RuntimeException("JMX query failure"));
 
         try (HikariMXBeanClient client = new HikariMXBeanClient(mockMbsc)) {
             assertThatThrownBy(client::getPools)
-                .isInstanceOf(IOException.class)
-                .hasMessageContaining("Failed to query HikariCP MBeans");
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("Failed to query HikariCP MBeans");
         }
     }
 
@@ -219,12 +223,13 @@ class HikariMXBeanClientTest {
     @DisplayName("readPool wraps attribute read exceptions into IOException")
     void shouldWrapReadPoolExceptions() throws Exception {
         ObjectName poolName = new ObjectName("com.zaxxer.hikari:type=Pool (FailingPool)");
-        when(mockMbsc.getAttribute(poolName, "ActiveConnections")).thenThrow(new RuntimeException("Attr read failure"));
+        when(mockMbsc.getAttribute(poolName, "ActiveConnections"))
+                .thenThrow(new RuntimeException("Attr read failure"));
 
         try (HikariMXBeanClient client = new HikariMXBeanClient(mockMbsc)) {
             assertThatThrownBy(() -> client.readPool(poolName))
-                .isInstanceOf(IOException.class)
-                .hasMessageContaining("Failed to read HikariCP pool");
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("Failed to read HikariCP pool");
         }
     }
 
@@ -232,22 +237,25 @@ class HikariMXBeanClientTest {
     @DisplayName("getMaximumPoolSize wraps attribute read exceptions into IOException")
     void shouldWrapGetMaximumPoolSizeExceptions() throws Exception {
         ObjectName configName = new ObjectName("com.zaxxer.hikari:type=PoolConfig (FailingPool)");
-        when(mockMbsc.getAttribute(configName, "MaximumPoolSize")).thenThrow(new RuntimeException("Config read failure"));
+        when(mockMbsc.getAttribute(configName, "MaximumPoolSize"))
+                .thenThrow(new RuntimeException("Config read failure"));
 
         try (HikariMXBeanClient client = new HikariMXBeanClient(mockMbsc)) {
             assertThatThrownBy(() -> client.getMaximumPoolSize(configName))
-                .isInstanceOf(IOException.class)
-                .hasMessageContaining("Failed to read maximum pool size");
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("Failed to read maximum pool size");
         }
     }
 
     @Test
     @DisplayName("extractPoolName strips prefix/suffix or returns raw name when not formatted")
     void shouldExtractPoolNames() throws Exception {
-        assertThat(hikariClient.extractPoolName(new ObjectName("com.zaxxer.hikari:type=Pool (Custom)")))
-            .isEqualTo("Custom");
+        assertThat(
+                        hikariClient.extractPoolName(
+                                new ObjectName("com.zaxxer.hikari:type=Pool (Custom)")))
+                .isEqualTo("Custom");
         assertThat(hikariClient.extractPoolName(new ObjectName("com.zaxxer.hikari:type=OtherPool")))
-            .isEqualTo("com.zaxxer.hikari:type=OtherPool");
+                .isEqualTo("com.zaxxer.hikari:type=OtherPool");
     }
 
     @Test
@@ -275,17 +283,16 @@ class HikariMXBeanClientTest {
     @Test
     @DisplayName("does not blame CPU or GC when maximum pool size is unknown")
     void shouldHandleUnknownMaximumPoolSize() throws Exception {
-        ObjectName poolName =
-            new ObjectName("com.zaxxer.hikari:type=Pool,name=UnknownMaxPool");
+        ObjectName poolName = new ObjectName("com.zaxxer.hikari:type=Pool,name=UnknownMaxPool");
         ObjectName configName =
-            new ObjectName("com.zaxxer.hikari:type=PoolConfig,name=UnknownMaxPool");
+                new ObjectName("com.zaxxer.hikari:type=PoolConfig,name=UnknownMaxPool");
 
         when(mockMbsc.getAttribute(poolName, "ActiveConnections")).thenReturn(10);
         when(mockMbsc.getAttribute(poolName, "IdleConnections")).thenReturn(0);
         when(mockMbsc.getAttribute(poolName, "TotalConnections")).thenReturn(10);
         when(mockMbsc.getAttribute(poolName, "ThreadsAwaitingConnection")).thenReturn(1);
         when(mockMbsc.getAttribute(configName, "MaximumPoolSize"))
-            .thenThrow(new InstanceNotFoundException("PoolConfig unavailable"));
+                .thenThrow(new InstanceNotFoundException("PoolConfig unavailable"));
 
         try (HikariMXBeanClient client = new HikariMXBeanClient(mockMbsc)) {
             HikariPoolStatistics statistics = client.readPool(poolName);
@@ -293,11 +300,9 @@ class HikariMXBeanClientTest {
             assertThat(statistics.maximumPoolSize()).isEqualTo(-1);
             assertThat(statistics.health().status()).isEqualTo("DEGRADED");
             assertThat(statistics.health().recommendation())
-                .contains("maximumPoolSize unknown")
-                .doesNotContain("CPU starvation")
-                .doesNotContain("GC pause");
+                    .contains("maximumPoolSize unknown")
+                    .doesNotContain("CPU starvation")
+                    .doesNotContain("GC pause");
         }
     }
 }
-
-

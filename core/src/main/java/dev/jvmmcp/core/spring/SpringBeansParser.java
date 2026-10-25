@@ -4,11 +4,11 @@ import dev.jvmmcp.core.model.SpringBeanDetail;
 import dev.jvmmcp.core.model.SpringBeansReport;
 import dev.jvmmcp.core.model.SpringContextBeans;
 import dev.jvmmcp.core.util.SimpleJson;
-
 import java.util.*;
 
 /**
- * Robust parser converting Spring Boot Actuator and JMX beans payloads into immutable diagnostic reports.
+ * Robust parser converting Spring Boot Actuator and JMX beans payloads into immutable diagnostic
+ * reports.
  */
 public class SpringBeansParser {
 
@@ -29,7 +29,8 @@ public class SpringBeansParser {
         List<SpringContextBeans> contextList = new ArrayList<>();
         int totalBeans = 0;
 
-        // Spring Boot standard structure: { "contexts": { "contextId": { "beans": { ... }, "parentId": ... } } }
+        // Spring Boot standard structure: { "contexts": { "contextId": { "beans": { ... },
+        // "parentId": ... } } }
         Object contextsObj = root.get("contexts");
         if (contextsObj instanceof Map<?, ?> contextsMap) {
             for (Map.Entry<?, ?> entry : contextsMap.entrySet()) {
@@ -39,7 +40,8 @@ public class SpringBeansParser {
                     Object beansObj = contextData.get("beans");
                     List<SpringBeanDetail> beans = parseBeansMap(beansObj);
                     totalBeans += beans.size();
-                    contextList.add(new SpringContextBeans(contextId, parentId, beans.size(), beans));
+                    contextList.add(
+                            new SpringContextBeans(contextId, parentId, beans.size(), beans));
                 }
             }
         } else if (root.containsKey("beans")) {
@@ -72,9 +74,13 @@ public class SpringBeansParser {
                 String resource = Objects.toString(data.get("resource"), null);
                 List<String> dependencies = toStringList(data.get("dependencies"));
 
-                beans.add(new SpringBeanDetail(beanName, aliases, scope, type, resource, dependencies));
+                beans.add(
+                        new SpringBeanDetail(
+                                beanName, aliases, scope, type, resource, dependencies));
             } else if (entry.getValue() instanceof String typeStr) {
-                beans.add(new SpringBeanDetail(beanName, List.of(), "singleton", typeStr, null, List.of()));
+                beans.add(
+                        new SpringBeanDetail(
+                                beanName, List.of(), "singleton", typeStr, null, List.of()));
             }
         }
 
@@ -83,17 +89,11 @@ public class SpringBeansParser {
 
     private List<String> toStringList(Object obj) {
         if (obj instanceof List<?> list) {
-            return list.stream()
-                .filter(Objects::nonNull)
-                .map(Object::toString)
-                .toList();
+            return list.stream().filter(Objects::nonNull).map(Object::toString).toList();
         }
         // JMX returns array attributes as Object[]; String[] is also matched here.
         if (obj instanceof Object[] arr) {
-            return Arrays.stream(arr)
-                .filter(Objects::nonNull)
-                .map(Object::toString)
-                .toList();
+            return Arrays.stream(arr).filter(Objects::nonNull).map(Object::toString).toList();
         }
         return List.of();
     }

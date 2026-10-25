@@ -1,17 +1,17 @@
 package dev.jvmmcp.core.jmx;
 
 import com.sun.tools.attach.VirtualMachine;
-
+import java.io.IOException;
+import java.lang.management.ManagementFactory;
+import java.util.Properties;
 import javax.management.MBeanServerConnection;
 import javax.management.remote.JMXConnector;
 import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXServiceURL;
-import java.io.IOException;
-import java.lang.management.ManagementFactory;
-import java.util.Properties;
 
 /**
- * Manages JMX connection lifecycle for both local self-inspection and target JVM processes attached via Attach API.
+ * Manages JMX connection lifecycle for both local self-inspection and target JVM processes attached
+ * via Attach API.
  */
 public class JmxConnectionManager implements AutoCloseable {
 
@@ -20,7 +20,8 @@ public class JmxConnectionManager implements AutoCloseable {
     private final JMXConnector connector;
     private final MBeanServerConnection mBeanServerConnection;
 
-    private JmxConnectionManager(long pid, VirtualMachine vm, JMXConnector connector, MBeanServerConnection connection) {
+    private JmxConnectionManager(
+            long pid, VirtualMachine vm, JMXConnector connector, MBeanServerConnection connection) {
         this.pid = pid;
         this.virtualMachine = vm;
         this.connector = connector;
@@ -35,19 +36,23 @@ public class JmxConnectionManager implements AutoCloseable {
 
     public static JmxConnectionManager connect(VirtualMachine vm, long pid) throws IOException {
         if (vm == null) {
-            throw new IllegalArgumentException("VirtualMachine cannot be null when connecting via Attach API.");
+            throw new IllegalArgumentException(
+                    "VirtualMachine cannot be null when connecting via Attach API.");
         }
 
         long currentPid = ProcessHandle.current().pid();
         if (pid == currentPid) {
-            return new JmxConnectionManager(pid, vm, null, ManagementFactory.getPlatformMBeanServer());
+            return new JmxConnectionManager(
+                    pid, vm, null, ManagementFactory.getPlatformMBeanServer());
         }
 
         String connectorAddress = resolveConnectorAddress(vm);
         if (connectorAddress == null || connectorAddress.isBlank()) {
-            throw new IOException("Failed to establish local JMX connection to JVM process " + pid +
-                ". The local management agent could not be started or resolved " +
-                "(ensure target JVM allows dynamic attachment and has not disabled dynamic agent loading).");
+            throw new IOException(
+                    "Failed to establish local JMX connection to JVM process "
+                            + pid
+                            + ". The local management agent could not be started or resolved "
+                            + "(ensure target JVM allows dynamic attachment and has not disabled dynamic agent loading).");
         }
 
         JMXServiceURL url = new JMXServiceURL(connectorAddress);
@@ -59,7 +64,8 @@ public class JmxConnectionManager implements AutoCloseable {
 
     static String resolveConnectorAddress(VirtualMachine vm) throws IOException {
         Properties agentProps = vm.getAgentProperties();
-        String connectorAddress = agentProps.getProperty("com.sun.management.jmxremote.localConnectorAddress");
+        String connectorAddress =
+                agentProps.getProperty("com.sun.management.jmxremote.localConnectorAddress");
 
         if (connectorAddress != null && !connectorAddress.isBlank()) {
             return connectorAddress;
@@ -77,7 +83,8 @@ public class JmxConnectionManager implements AutoCloseable {
 
         // Re-check agent properties
         agentProps = vm.getAgentProperties();
-        connectorAddress = agentProps.getProperty("com.sun.management.jmxremote.localConnectorAddress");
+        connectorAddress =
+                agentProps.getProperty("com.sun.management.jmxremote.localConnectorAddress");
         if (connectorAddress != null && !connectorAddress.isBlank()) {
             return connectorAddress;
         }
@@ -98,12 +105,14 @@ public class JmxConnectionManager implements AutoCloseable {
         if (connector != null) {
             try {
                 connector.close();
-            } catch (IOException ignored) {}
+            } catch (IOException ignored) {
+            }
         }
         if (virtualMachine != null) {
             try {
                 virtualMachine.detach();
-            } catch (IOException ignored) {}
+            } catch (IOException ignored) {
+            }
         }
     }
 }

@@ -1,24 +1,28 @@
 package dev.jvmmcp.core.attach;
 
 import dev.jvmmcp.core.model.Framework;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
 
-/**
- * Heuristic detector for identifying common JVM frameworks from process metadata.
- */
+/** Heuristic detector for identifying common JVM frameworks from process metadata. */
 public final class FrameworkDetector {
 
     private FrameworkDetector() {}
 
     public static Framework detect(String displayName, String mainClass) {
-        String combined = ((displayName != null ? displayName : "") + " " + (mainClass != null ? mainClass : "")).toLowerCase();
+        String combined =
+                ((displayName != null ? displayName : "")
+                                + " "
+                                + (mainClass != null ? mainClass : ""))
+                        .toLowerCase();
 
-        if (combined.contains("org.springframework.boot") || combined.contains("springapplication") || combined.contains("springboot") || combined.contains("spring-boot")) {
+        if (combined.contains("org.springframework.boot")
+                || combined.contains("springapplication")
+                || combined.contains("springboot")
+                || combined.contains("spring-boot")) {
             return Framework.SPRING_BOOT;
         }
         if (combined.contains("io.quarkus") || combined.contains("quarkus")) {
@@ -31,7 +35,7 @@ public final class FrameworkDetector {
         // Try manifest detection if it's a jar execution
         if (displayName != null) {
             String command = displayName.trim().replace("\"", "");
-            
+
             // Handle "-jar" prefix
             if (command.toLowerCase().startsWith("-jar ")) {
                 command = command.substring(5).trim();
@@ -53,10 +57,13 @@ public final class FrameworkDetector {
                             Manifest manifest = jar.getManifest();
                             if (manifest != null) {
                                 Attributes attrs = manifest.getMainAttributes();
-                                if (attrs.getValue("Spring-Boot-Version") != null || attrs.getValue("Start-Class") != null) {
+                                if (attrs.getValue("Spring-Boot-Version") != null
+                                        || attrs.getValue("Start-Class") != null) {
                                     return Framework.SPRING_BOOT;
                                 }
-                                if (attrs.getValue("Quarkus-Version") != null || "io.quarkus.bootstrap.runner.QuarkusEntryPoint".equals(attrs.getValue("Main-Class"))) {
+                                if (attrs.getValue("Quarkus-Version") != null
+                                        || "io.quarkus.bootstrap.runner.QuarkusEntryPoint"
+                                                .equals(attrs.getValue("Main-Class"))) {
                                     return Framework.QUARKUS;
                                 }
                                 if (attrs.getValue("Micronaut-Version") != null) {
@@ -66,7 +73,8 @@ public final class FrameworkDetector {
                         }
                     }
                 } catch (Exception ignored) {
-                    // Ignore exceptions during heuristic detection (e.g. InvalidPathException or IOException)
+                    // Ignore exceptions during heuristic detection (e.g. InvalidPathException or
+                    // IOException)
                 }
             }
         }

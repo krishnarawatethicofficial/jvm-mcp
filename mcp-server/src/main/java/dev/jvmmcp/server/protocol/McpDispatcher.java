@@ -4,14 +4,11 @@ import dev.jvmmcp.JvmMcp;
 import dev.jvmmcp.core.util.SimpleJson;
 import dev.jvmmcp.server.tool.ToolArgs;
 import dev.jvmmcp.server.tool.ToolRegistry;
-
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
-/**
- * Handles JSON-RPC 2.0 protocol dispatching for MCP server.
- */
+/** Handles JSON-RPC 2.0 protocol dispatching for MCP server. */
 public class McpDispatcher {
 
     public static final String PROTOCOL_VERSION = "2024-11-05";
@@ -60,20 +57,26 @@ public class McpDispatcher {
         // 1. Validate JSON-RPC version
         Object jsonrpc = req.get("jsonrpc");
         if (!"2.0".equals(jsonrpc)) {
-            return Optional.of(formatInvalidRequest(req.get("id"), "Invalid Request: 'jsonrpc' must be exactly '2.0'"));
+            return Optional.of(
+                    formatInvalidRequest(
+                            req.get("id"), "Invalid Request: 'jsonrpc' must be exactly '2.0'"));
         }
 
         // 2. Validate method
         Object methodObj = req.get("method");
         if (!(methodObj instanceof String method) || method.isBlank()) {
-            return Optional.of(formatInvalidRequest(req.get("id"), "Invalid Request: 'method' must be a non-empty string"));
+            return Optional.of(
+                    formatInvalidRequest(
+                            req.get("id"), "Invalid Request: 'method' must be a non-empty string"));
         }
 
         // 3. Validate id type
         if (req.containsKey("id")) {
             Object id = req.get("id");
             if (id != null && !(id instanceof String) && !(id instanceof Number)) {
-                return Optional.of(formatInvalidRequest(null, "Invalid Request: 'id' must be a String, Number, or null"));
+                return Optional.of(
+                        formatInvalidRequest(
+                                null, "Invalid Request: 'id' must be a String, Number, or null"));
             }
         }
 
@@ -103,11 +106,14 @@ public class McpDispatcher {
             return Optional.of(response);
         } catch (Exception e) {
             String errorRef = java.util.UUID.randomUUID().toString().substring(0, 8);
-            System.err.println("[jvm-mcp] [err-" + errorRef + "] Internal error handling request: " + e.getMessage());
-            response.put("error", Map.of(
-                "code", -32603,
-                "message", "Internal error (ref: " + errorRef + ")"
-            ));
+            System.err.println(
+                    "[jvm-mcp] [err-"
+                            + errorRef
+                            + "] Internal error handling request: "
+                            + e.getMessage());
+            response.put(
+                    "error",
+                    Map.of("code", -32603, "message", "Internal error (ref: " + errorRef + ")"));
             return Optional.of(response);
         }
     }
@@ -115,10 +121,9 @@ public class McpDispatcher {
     private Map<String, Object> processMethod(String method, Map<String, Object> req) {
         if ("initialize".equals(method)) {
             return Map.of(
-                "protocolVersion", PROTOCOL_VERSION,
-                "capabilities", Map.of("tools", Map.of()),
-                "serverInfo", Map.of("name", serverName, "version", serverVersion)
-            );
+                    "protocolVersion", PROTOCOL_VERSION,
+                    "capabilities", Map.of("tools", Map.of()),
+                    "serverInfo", Map.of("name", serverName, "version", serverVersion));
         }
 
         if ("ping".equals(method)) {
@@ -154,7 +159,9 @@ public class McpDispatcher {
         Map<String, Object> errResp = new LinkedHashMap<>();
         errResp.put("jsonrpc", "2.0");
         errResp.put("id", id);
-        errResp.put("error", Map.of("code", -32600, "message", message != null ? message : "Invalid Request"));
+        errResp.put(
+                "error",
+                Map.of("code", -32600, "message", message != null ? message : "Invalid Request"));
         return errResp;
     }
 
@@ -170,7 +177,9 @@ public class McpDispatcher {
         Map<String, Object> errResp = new LinkedHashMap<>();
         errResp.put("jsonrpc", "2.0");
         errResp.put("id", id);
-        errResp.put("error", Map.of("code", -32602, "message", message != null ? message : "Invalid params"));
+        errResp.put(
+                "error",
+                Map.of("code", -32602, "message", message != null ? message : "Invalid params"));
         return errResp;
     }
 
@@ -178,7 +187,9 @@ public class McpDispatcher {
         Map<String, Object> errResp = new LinkedHashMap<>();
         errResp.put("jsonrpc", "2.0");
         errResp.put("id", id);
-        errResp.put("error", Map.of("code", -32603, "message", message != null ? message : "Internal error"));
+        errResp.put(
+                "error",
+                Map.of("code", -32603, "message", message != null ? message : "Internal error"));
         return errResp;
     }
 }

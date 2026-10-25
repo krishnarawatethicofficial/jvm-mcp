@@ -2,13 +2,10 @@ package dev.jvmmcp.server.tool;
 
 import java.util.Map;
 
-/**
- * Type-safe argument extraction utilities for MCP tool invocations.
- */
+/** Type-safe argument extraction utilities for MCP tool invocations. */
 public final class ToolArgs {
 
-    private ToolArgs() {
-    }
+    private ToolArgs() {}
 
     @SuppressWarnings("unchecked")
     public static Map<String, Object> asMap(Object obj) {
@@ -57,7 +54,8 @@ public final class ToolArgs {
             try {
                 return Long.parseLong(s.trim());
             } catch (NumberFormatException e) {
-                throw new IllegalArgumentException("Argument '" + key + "' must be a number, got: " + s);
+                throw new IllegalArgumentException(
+                        "Argument '" + key + "' must be a number, got: " + s);
             }
         }
         throw new IllegalArgumentException("Argument '" + key + "' must be a number");
@@ -66,12 +64,14 @@ public final class ToolArgs {
     public static long getPositiveLongArg(Map<String, Object> args, String key, boolean required) {
         long value = getLongArg(args, key, required);
         if (required && value <= 0) {
-            throw new IllegalArgumentException("Argument '" + key + "' must be a positive number (got: " + value + ")");
+            throw new IllegalArgumentException(
+                    "Argument '" + key + "' must be a positive number (got: " + value + ")");
         }
         return value;
     }
 
-    public static int getIntArg(Map<String, Object> args, String key, int defaultValue, int min, int max) {
+    public static int getIntArg(
+            Map<String, Object> args, String key, int defaultValue, int min, int max) {
         if (args == null || !args.containsKey(key) || args.get(key) == null) {
             return defaultValue;
         }
@@ -83,7 +83,8 @@ public final class ToolArgs {
             try {
                 parsed = Integer.parseInt(s.trim());
             } catch (NumberFormatException e) {
-                throw new IllegalArgumentException("Argument '" + key + "' must be a number, got: " + s);
+                throw new IllegalArgumentException(
+                        "Argument '" + key + "' must be a number, got: " + s);
             }
         } else {
             throw new IllegalArgumentException("Argument '" + key + "' must be a number");
@@ -94,7 +95,8 @@ public final class ToolArgs {
         return Math.min(parsed, max);
     }
 
-    public static boolean getBooleanArg(Map<String, Object> args, String key, boolean defaultValue) {
+    public static boolean getBooleanArg(
+            Map<String, Object> args, String key, boolean defaultValue) {
         if (args == null || !args.containsKey(key) || args.get(key) == null) {
             return defaultValue;
         }

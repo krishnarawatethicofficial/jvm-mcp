@@ -1,13 +1,12 @@
 package dev.jvmmcp;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import picocli.CommandLine;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import picocli.CommandLine;
 
 class JvmMcpTest {
 
@@ -77,18 +76,26 @@ class JvmMcpTest {
     @Test
     @DisplayName("resolveVersion should read from properties stream when package version is null")
     void shouldReadFromPropertiesStream() {
-        java.io.ByteArrayInputStream in = new java.io.ByteArrayInputStream("version=1.2.3\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        java.io.ByteArrayInputStream in =
+                new java.io.ByteArrayInputStream(
+                        "version=1.2.3\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
         String resolved = JvmMcp.resolveVersion(null, in);
         assertThat(resolved).isEqualTo("1.2.3");
     }
 
     @Test
-    @DisplayName("resolveVersion should fall back to default when properties contain placeholder or are empty")
+    @DisplayName(
+            "resolveVersion should fall back to default when properties contain placeholder or are empty")
     void shouldFallbackToDefaultWhenPlaceholderOrEmpty() {
-        java.io.ByteArrayInputStream inWithPlaceholder = new java.io.ByteArrayInputStream("version=${project.version}\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        java.io.ByteArrayInputStream inWithPlaceholder =
+                new java.io.ByteArrayInputStream(
+                        "version=${project.version}\n"
+                                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
         assertThat(JvmMcp.resolveVersion(null, inWithPlaceholder)).isEqualTo("1.1.1");
 
-        java.io.ByteArrayInputStream emptyIn = new java.io.ByteArrayInputStream("".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        java.io.ByteArrayInputStream emptyIn =
+                new java.io.ByteArrayInputStream(
+                        "".getBytes(java.nio.charset.StandardCharsets.UTF_8));
         assertThat(JvmMcp.resolveVersion(null, emptyIn)).isEqualTo("1.1.1");
 
         assertThat(JvmMcp.resolveVersion(null, null)).isEqualTo("1.1.1");

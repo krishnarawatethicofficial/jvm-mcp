@@ -3,7 +3,6 @@ package dev.jvmmcp.core.jmx;
 import com.sun.tools.attach.VirtualMachine;
 import dev.jvmmcp.core.model.ClassHistogramItem;
 import dev.jvmmcp.core.model.HeapHistogram;
-
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -12,7 +11,6 @@ import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-
 import javax.management.MBeanServerConnection;
 import javax.management.ObjectName;
 
@@ -22,14 +20,16 @@ import javax.management.ObjectName;
  */
 public class HeapHistogramReader {
 
-    private static final String DIAGNOSTIC_COMMAND_MBEAN = "com.sun.management:type=DiagnosticCommand";
+    private static final String DIAGNOSTIC_COMMAND_MBEAN =
+            "com.sun.management:type=DiagnosticCommand";
     public static final int DEFAULT_TOP_N = 50;
     public static final int MAX_TOP_N = 1000;
     private static final int MAX_PARSED_LINES = 100_000;
 
     public HeapHistogram readHistogram(VirtualMachine vm, long pid, int topN) throws Exception {
         if (vm == null) {
-            throw new IllegalArgumentException("VirtualMachine cannot be null to read live heap histogram.");
+            throw new IllegalArgumentException(
+                    "VirtualMachine cannot be null to read live heap histogram.");
         }
 
         Method executeJCmdMethod = vm.getClass().getMethod("executeJCmd", String.class);
@@ -39,28 +39,33 @@ public class HeapHistogramReader {
     }
 
     /**
-     * Reads the live heap histogram through the platform
-     * {@code com.sun.management:type=DiagnosticCommand} MBean, as a fallback for non-HotSpot
-     * JVMs, modular runtimes without {@code --add-opens jdk.attach/sun.tools.attach}, and
-     * self-inspection without a {@link VirtualMachine} handle.
+     * Reads the live heap histogram through the platform {@code
+     * com.sun.management:type=DiagnosticCommand} MBean, as a fallback for non-HotSpot JVMs, modular
+     * runtimes without {@code --add-opens jdk.attach/sun.tools.attach}, and self-inspection without
+     * a {@link VirtualMachine} handle.
      */
-    public HeapHistogram readHistogram(MBeanServerConnection mbsc, long pid, int topN) throws Exception {
+    public HeapHistogram readHistogram(MBeanServerConnection mbsc, long pid, int topN)
+            throws Exception {
         if (mbsc == null) {
-            throw new IllegalArgumentException("MBeanServerConnection cannot be null to read live heap histogram.");
+            throw new IllegalArgumentException(
+                    "MBeanServerConnection cannot be null to read live heap histogram.");
         }
 
-        Object result = mbsc.invoke(
-            new ObjectName(DIAGNOSTIC_COMMAND_MBEAN),
-            "gcClassHistogram",
-            new Object[]{new String[0]},
-            new String[]{String[].class.getName()});
+        Object result =
+                mbsc.invoke(
+                        new ObjectName(DIAGNOSTIC_COMMAND_MBEAN),
+                        "gcClassHistogram",
+                        new Object[] {new String[0]},
+                        new String[] {String[].class.getName()});
 
         if (result == null) {
             return new HeapHistogram(pid, 0, 0, 0.0, List.of());
         }
 
         return parseHistogramStream(
-            new ByteArrayInputStream(result.toString().getBytes(StandardCharsets.UTF_8)), pid, topN);
+                new ByteArrayInputStream(result.toString().getBytes(StandardCharsets.UTF_8)),
+                pid,
+                topN);
     }
 
     public HeapHistogram parseHistogramStream(InputStream in, long pid, int topN) throws Exception {
@@ -75,7 +80,8 @@ public class HeapHistogramReader {
         long parsedTotalInstances = 0;
         long parsedTotalBytes = 0;
 
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
+        try (BufferedReader reader =
+                new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
             String line;
             boolean headerFound = false;
             int parsedLines = 0;
@@ -85,7 +91,8 @@ public class HeapHistogramReader {
                     break;
                 }
                 line = line.trim();
-                if (line.startsWith("---") || (line.contains("instances") && line.contains("bytes"))) {
+                if (line.startsWith("---")
+                        || (line.contains("instances") && line.contains("bytes"))) {
                     headerFound = true;
                     continue;
                 }
@@ -99,7 +106,8 @@ public class HeapHistogramReader {
                         try {
                             totalInstances = Long.parseLong(totalParts[1]);
                             totalBytes = Long.parseLong(totalParts[2]);
-                        } catch (NumberFormatException ignored) {}
+                        } catch (NumberFormatException ignored) {
+                        }
                     }
                     continue;
                 }
@@ -119,7 +127,8 @@ public class HeapHistogramReader {
                         if (items.size() < effectiveTopN) {
                             items.add(ClassHistogramItem.of(rank, instances, bytes, className));
                         }
-                    } catch (NumberFormatException ignored) {}
+                    } catch (NumberFormatException ignored) {
+                    }
                 }
             }
         }
@@ -130,13 +139,15 @@ public class HeapHistogramReader {
         }
 
         double totalMb = totalBytes / (1024.0 * 1024.0);
-        return new HeapHistogram(pid, totalInstances, totalBytes, Math.round(totalMb * 100.0) / 100.0, items);
+        return new HeapHistogram(
+                pid, totalInstances, totalBytes, Math.round(totalMb * 100.0) / 100.0, items);
     }
 
     /**
-     * Rewrites a JVM array descriptor, as {@code GC.class_histogram} prints it, as a Java type name:
-     * {@code [B} becomes {@code byte[]}, {@code [[Ljava.lang.Object;} becomes {@code java.lang.Object[][]}.
-     * A trailing module, such as {@code (java.base@21.0.3)}, is kept. Anything else is returned as given.
+     * Rewrites a JVM array descriptor, as {@code GC.class_histogram} prints it, as a Java type
+     * name: {@code [B} becomes {@code byte[]}, {@code [[Ljava.lang.Object;} becomes {@code
+     * java.lang.Object[][]}. A trailing module, such as {@code (java.base@21.0.3)}, is kept.
+     * Anything else is returned as given.
      */
     static String normalizeClassName(String raw) {
         if (raw == null || !raw.startsWith("[")) {
@@ -150,19 +161,21 @@ public class HeapHistogramReader {
             dimensions++;
         }
         String element = descriptor.substring(dimensions);
-        String type = switch (element) {
-            case "B" -> "byte";
-            case "C" -> "char";
-            case "D" -> "double";
-            case "F" -> "float";
-            case "I" -> "int";
-            case "J" -> "long";
-            case "S" -> "short";
-            case "Z" -> "boolean";
-            default -> element.length() > 2 && element.startsWith("L") && element.endsWith(";")
-                ? element.substring(1, element.length() - 1)
-                : null;
-        };
+        String type =
+                switch (element) {
+                    case "B" -> "byte";
+                    case "C" -> "char";
+                    case "D" -> "double";
+                    case "F" -> "float";
+                    case "I" -> "int";
+                    case "J" -> "long";
+                    case "S" -> "short";
+                    case "Z" -> "boolean";
+                    default ->
+                            element.length() > 2 && element.startsWith("L") && element.endsWith(";")
+                                    ? element.substring(1, element.length() - 1)
+                                    : null;
+                };
         return type == null ? raw : type + "[]".repeat(dimensions) + rest;
     }
 }

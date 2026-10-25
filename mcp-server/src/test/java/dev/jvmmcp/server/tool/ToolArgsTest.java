@@ -1,13 +1,12 @@
 package dev.jvmmcp.server.tool;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.HashMap;
 import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 class ToolArgsTest {
 
@@ -35,13 +34,13 @@ class ToolArgsTest {
         Map<String, Object> args = Map.of("other", "val");
         assertThat(ToolArgs.getStringArg(args, "missing", false)).isNull();
         assertThatThrownBy(() -> ToolArgs.getStringArg(args, "missing", true))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Missing required argument: missing");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Missing required argument: missing");
 
         assertThat(ToolArgs.getStringArg(null, "missing", false)).isNull();
         assertThatThrownBy(() -> ToolArgs.getStringArg(null, "missing", true))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Missing required argument: missing");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Missing required argument: missing");
     }
 
     @Test
@@ -49,8 +48,8 @@ class ToolArgsTest {
     void testGetStringArgInvalidType() {
         Map<String, Object> args = Map.of("count", 42);
         assertThatThrownBy(() -> ToolArgs.getStringArg(args, "count", false))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Argument 'count' must be a string");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Argument 'count' must be a string");
     }
 
     @Test
@@ -64,12 +63,16 @@ class ToolArgsTest {
     @Test
     @DisplayName("getLongArg returns long value for numbers")
     void testGetLongArgSuccess() {
-        Map<String, Object> args = Map.of(
-            "intVal", 10,
-            "longVal", 5000000000L,
-            "doubleVal", 99.0,
-            "strLong", "123456"
-        );
+        Map<String, Object> args =
+                Map.of(
+                        "intVal",
+                        10,
+                        "longVal",
+                        5000000000L,
+                        "doubleVal",
+                        99.0,
+                        "strLong",
+                        "123456");
         assertThat(ToolArgs.getLongArg(args, "intVal", true)).isEqualTo(10L);
         assertThat(ToolArgs.getLongArg(args, "longVal", false)).isEqualTo(5000000000L);
         assertThat(ToolArgs.getLongArg(args, "doubleVal", false)).isEqualTo(99L);
@@ -82,13 +85,13 @@ class ToolArgsTest {
         Map<String, Object> args = Map.of("other", 100);
         assertThat(ToolArgs.getLongArg(args, "missing", false)).isEqualTo(0L);
         assertThatThrownBy(() -> ToolArgs.getLongArg(args, "missing", true))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Missing required argument: missing");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Missing required argument: missing");
 
         assertThat(ToolArgs.getLongArg(null, "missing", false)).isEqualTo(0L);
         assertThatThrownBy(() -> ToolArgs.getLongArg(null, "missing", true))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Missing required argument: missing");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Missing required argument: missing");
     }
 
     @Test
@@ -96,13 +99,13 @@ class ToolArgsTest {
     void testGetLongArgInvalidType() {
         Map<String, Object> args = Map.of("str", "not-a-number");
         assertThatThrownBy(() -> ToolArgs.getLongArg(args, "str", false))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("must be a number");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("must be a number");
 
         Map<String, Object> nonStringArgs = Map.of("bool", true);
         assertThatThrownBy(() -> ToolArgs.getLongArg(nonStringArgs, "bool", false))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("must be a number");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("must be a number");
     }
 
     @Test
@@ -113,13 +116,13 @@ class ToolArgsTest {
 
         Map<String, Object> zero = Map.of("pid", 0L);
         assertThatThrownBy(() -> ToolArgs.getPositiveLongArg(zero, "pid", true))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("must be a positive number");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("must be a positive number");
 
         Map<String, Object> negative = Map.of("pid", -10L);
         assertThatThrownBy(() -> ToolArgs.getPositiveLongArg(negative, "pid", true))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("must be a positive number");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("must be a positive number");
     }
 
     @Test
@@ -132,18 +135,21 @@ class ToolArgsTest {
         assertThat(ToolArgs.getIntArg(Map.of("limit", -50), "limit", 100, 1, 1000)).isEqualTo(1);
 
         // Clamping to max
-        assertThat(ToolArgs.getIntArg(Map.of("limit", 5000), "limit", 100, 1, 1000)).isEqualTo(1000);
+        assertThat(ToolArgs.getIntArg(Map.of("limit", 5000), "limit", 100, 1, 1000))
+                .isEqualTo(1000);
 
         // Within bounds
         assertThat(ToolArgs.getIntArg(Map.of("limit", 250), "limit", 100, 1, 1000)).isEqualTo(250);
 
         // Numeric string support
-        assertThat(ToolArgs.getIntArg(Map.of("limit", "250"), "limit", 100, 1, 1000)).isEqualTo(250);
+        assertThat(ToolArgs.getIntArg(Map.of("limit", "250"), "limit", 100, 1, 1000))
+                .isEqualTo(250);
 
         // Invalid numeric string
-        assertThatThrownBy(() -> ToolArgs.getIntArg(Map.of("limit", "invalid"), "limit", 100, 1, 1000))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("must be a number");
+        assertThatThrownBy(
+                        () -> ToolArgs.getIntArg(Map.of("limit", "invalid"), "limit", 100, 1, 1000))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("must be a number");
     }
 
     @Test
@@ -200,8 +206,8 @@ class ToolArgsTest {
         args.put("limit", null);
 
         assertThatThrownBy(() -> ToolArgs.getLongArg(args, "limit", true))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("must be a number");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("must be a number");
     }
 
     @Test
@@ -210,8 +216,7 @@ class ToolArgsTest {
         Map<String, Object> args = new HashMap<>();
         args.put("limit", null);
 
-        assertThat(ToolArgs.getIntArg(args, "limit", 100, 1, 1000))
-            .isEqualTo(100);
+        assertThat(ToolArgs.getIntArg(args, "limit", 100, 1, 1000)).isEqualTo(100);
     }
 
     @Test
@@ -228,25 +233,20 @@ class ToolArgsTest {
     @Test
     @DisplayName("getBooleanArg supports booleans and strings")
     void testGetBooleanArgValues() {
-        assertThat(ToolArgs.getBooleanArg(
-            Map.of("enabled", true), "enabled", false)).isTrue();
+        assertThat(ToolArgs.getBooleanArg(Map.of("enabled", true), "enabled", false)).isTrue();
 
-        assertThat(ToolArgs.getBooleanArg(
-            Map.of("enabled", false), "enabled", true)).isFalse();
+        assertThat(ToolArgs.getBooleanArg(Map.of("enabled", false), "enabled", true)).isFalse();
 
-        assertThat(ToolArgs.getBooleanArg(
-            Map.of("enabled", " true "), "enabled", false)).isTrue();
+        assertThat(ToolArgs.getBooleanArg(Map.of("enabled", " true "), "enabled", false)).isTrue();
 
-        assertThat(ToolArgs.getBooleanArg(
-            Map.of("enabled", "false"), "enabled", true)).isFalse();
+        assertThat(ToolArgs.getBooleanArg(Map.of("enabled", "false"), "enabled", true)).isFalse();
     }
 
     @Test
     @DisplayName("getBooleanArg rejects unsupported value types")
     void testGetBooleanArgInvalidType() {
-        assertThatThrownBy(() ->
-            ToolArgs.getBooleanArg(Map.of("enabled", 1), "enabled", false))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Argument 'enabled' must be a boolean");
+        assertThatThrownBy(() -> ToolArgs.getBooleanArg(Map.of("enabled", 1), "enabled", false))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Argument 'enabled' must be a boolean");
     }
 }

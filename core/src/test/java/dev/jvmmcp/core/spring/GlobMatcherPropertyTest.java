@@ -1,9 +1,9 @@
 package dev.jvmmcp.core.spring;
 
-import net.jqwik.api.*;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+
+import net.jqwik.api.*;
 
 class GlobMatcherPropertyTest {
 
@@ -22,14 +22,16 @@ class GlobMatcherPropertyTest {
     }
 
     @Property
-    void patternWithPrefixWildcardMatchesSuffixedString(@ForAll("alphanumeric") String prefix, @ForAll("alphanumeric") String suffix) {
+    void patternWithPrefixWildcardMatchesSuffixedString(
+            @ForAll("alphanumeric") String prefix, @ForAll("alphanumeric") String suffix) {
         String text = prefix + suffix;
         String pattern = "*" + suffix;
         assertThat(GlobMatcher.matches(text, pattern)).isTrue();
     }
 
     @Property
-    void patternWithSuffixWildcardMatchesPrefixedString(@ForAll("alphanumeric") String prefix, @ForAll("alphanumeric") String suffix) {
+    void patternWithSuffixWildcardMatchesPrefixedString(
+            @ForAll("alphanumeric") String prefix, @ForAll("alphanumeric") String suffix) {
         String text = prefix + suffix;
         String pattern = prefix + "*";
         assertThat(GlobMatcher.matches(text, pattern)).isTrue();
@@ -37,8 +39,7 @@ class GlobMatcherPropertyTest {
 
     @Property
     void arbitraryRandomPatternsNeverThrowExceptions(@ForAll String text, @ForAll String pattern) {
-        assertThatCode(() -> GlobMatcher.matches(text, pattern))
-            .doesNotThrowAnyException();
+        assertThatCode(() -> GlobMatcher.matches(text, pattern)).doesNotThrowAnyException();
     }
 
     @Provide

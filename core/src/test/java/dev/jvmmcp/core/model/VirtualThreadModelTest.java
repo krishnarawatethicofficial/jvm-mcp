@@ -1,14 +1,13 @@
 package dev.jvmmcp.core.model;
 
-import dev.jvmmcp.core.util.SimpleJson;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
 
+import dev.jvmmcp.core.util.SimpleJson;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 @DisplayName("Virtual Thread Diagnostic Models & Serialization Tests")
 class VirtualThreadModelTest {
@@ -37,9 +36,21 @@ class VirtualThreadModelTest {
     @DisplayName("ThreadDump 4-argument constructor defaults virtualThreads to null")
     void shouldMaintainThreadDumpBackwardCompatibility() {
         Instant now = Instant.now();
-        ThreadDetail detail = new ThreadDetail(
-            1L, "main", "RUNNABLE", null, null, null, 0L, 0L, 0L, 0L, false, false, List.of()
-        );
+        ThreadDetail detail =
+                new ThreadDetail(
+                        1L,
+                        "main",
+                        "RUNNABLE",
+                        null,
+                        null,
+                        null,
+                        0L,
+                        0L,
+                        0L,
+                        0L,
+                        false,
+                        false,
+                        List.of());
         ThreadDump dump = new ThreadDump(123L, now, 1, List.of(detail));
 
         assertThat(dump.pid()).isEqualTo(123L);
@@ -51,12 +62,36 @@ class VirtualThreadModelTest {
     @DisplayName("ThreadDump retains virtualThreads list when provided")
     void shouldConstructThreadDumpWithVirtualThreads() {
         Instant now = Instant.now();
-        ThreadDetail platform = new ThreadDetail(
-            1L, "main", "RUNNABLE", null, null, null, 0L, 0L, 0L, 0L, false, false, List.of()
-        );
-        ThreadDetail virtual = new ThreadDetail(
-            100L, "vt-worker", "VIRTUAL", null, null, null, 0L, 0L, 0L, 0L, false, false, List.of()
-        );
+        ThreadDetail platform =
+                new ThreadDetail(
+                        1L,
+                        "main",
+                        "RUNNABLE",
+                        null,
+                        null,
+                        null,
+                        0L,
+                        0L,
+                        0L,
+                        0L,
+                        false,
+                        false,
+                        List.of());
+        ThreadDetail virtual =
+                new ThreadDetail(
+                        100L,
+                        "vt-worker",
+                        "VIRTUAL",
+                        null,
+                        null,
+                        null,
+                        0L,
+                        0L,
+                        0L,
+                        0L,
+                        false,
+                        false,
+                        List.of());
         ThreadDump dump = new ThreadDump(123L, now, 1, List.of(platform), List.of(virtual));
 
         assertThat(dump.threads()).containsExactly(platform);
@@ -64,12 +99,25 @@ class VirtualThreadModelTest {
     }
 
     @Test
-    @DisplayName("SimpleJson distinguishes available empty virtualThreads from unavailable null virtualThreads in ThreadDump")
+    @DisplayName(
+            "SimpleJson distinguishes available empty virtualThreads from unavailable null virtualThreads in ThreadDump")
     void shouldDistinguishAvailableFromUnavailableVirtualThreadsInThreadDump() {
         Instant now = Instant.now();
-        ThreadDetail platform = new ThreadDetail(
-            1L, "main", "RUNNABLE", null, null, null, 0L, 0L, 0L, 0L, false, false, List.of()
-        );
+        ThreadDetail platform =
+                new ThreadDetail(
+                        1L,
+                        "main",
+                        "RUNNABLE",
+                        null,
+                        null,
+                        null,
+                        0L,
+                        0L,
+                        0L,
+                        0L,
+                        false,
+                        false,
+                        List.of());
 
         // Case 1: Available empty virtual thread dump
         ThreadDump availableEmptyDump = new ThreadDump(123L, now, 1, List.of(platform), List.of());

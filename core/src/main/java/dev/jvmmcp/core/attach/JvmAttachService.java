@@ -5,7 +5,6 @@ import com.sun.tools.attach.VirtualMachine;
 import com.sun.tools.attach.VirtualMachineDescriptor;
 import dev.jvmmcp.core.model.Framework;
 import dev.jvmmcp.core.model.JvmProcess;
-
 import java.io.IOException;
 import java.lang.System.Logger;
 import java.util.ArrayList;
@@ -15,9 +14,7 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-/**
- * Core service managing JVM discovery and connection lifecycle using the JDK Attach API.
- */
+/** Core service managing JVM discovery and connection lifecycle using the JDK Attach API. */
 public class JvmAttachService {
 
     private static final Logger LOGGER = System.getLogger(JvmAttachService.class.getName());
@@ -32,8 +29,11 @@ public class JvmAttachService {
     JvmAttachService(
             Function<Long, Optional<ProcessHandle>> processLookup,
             Supplier<ProcessHandle> currentProcessSupplier) {
-        this.processLookup = Objects.requireNonNull(processLookup, "processLookup must not be null");
-        this.currentProcessSupplier = Objects.requireNonNull(currentProcessSupplier, "currentProcessSupplier must not be null");
+        this.processLookup =
+                Objects.requireNonNull(processLookup, "processLookup must not be null");
+        this.currentProcessSupplier =
+                Objects.requireNonNull(
+                        currentProcessSupplier, "currentProcessSupplier must not be null");
     }
 
     public List<JvmProcess> listJvms() {
@@ -54,25 +54,27 @@ public class JvmAttachService {
             String mainClass = extractMainClass(displayName);
             Framework framework = FrameworkDetector.detect(displayName, mainClass);
 
-            ProcessHandle currentProcess=currentProcessSupplier.get();
+            ProcessHandle currentProcess = currentProcessSupplier.get();
             long currentPid = currentProcess.pid();
             boolean isSelf = (pid == currentPid);
             Optional<ProcessHandle> processHandle = processLookup.apply(pid);
 
-            boolean isAttachable = processHandle.isPresent()
-                && (isSelf || (processHandle.get().isAlive()
-                && !isCrossUser(
-                currentProcess.info().user(),
-                processHandle.get().info().user())));
+            boolean isAttachable =
+                    processHandle.isPresent()
+                            && (isSelf
+                                    || (processHandle.get().isAlive()
+                                            && !isCrossUser(
+                                                    currentProcess.info().user(),
+                                                    processHandle.get().info().user())));
 
-            result.add(new JvmProcess(
-                pid,
-                displayName,
-                mainClass,
-                isSelf ? System.getProperty("java.version") : "unknown",
-                framework,
-                isAttachable
-            ));
+            result.add(
+                    new JvmProcess(
+                            pid,
+                            displayName,
+                            mainClass,
+                            isSelf ? System.getProperty("java.version") : "unknown",
+                            framework,
+                            isAttachable));
         }
 
         long durationMs = (System.nanoTime() - start) / 1_000_000;
@@ -98,7 +100,8 @@ public class JvmAttachService {
         }
 
         if (requestedPid == currentProcessSupplier.get().pid()) {
-            // Self-attachment is blocked by default on modern JDKs (jdk.attach.allowAttachSelf=false),
+            // Self-attachment is blocked by default on modern JDKs
+            // (jdk.attach.allowAttachSelf=false),
             // so self-inspection must not go through the Attach API.
             return AttachResult.self(pid);
         }
@@ -112,7 +115,11 @@ public class JvmAttachService {
             Optional<String> targetUser = processHandle.get().info().user();
             if (isCrossUser(currentUser, targetUser)) {
                 String targetUserName = targetUser.orElse("unknown");
-                return AttachResult.permissionDenied(pid, "Target JVM process is owned by a different user (" + targetUserName + "). Cross-user attachment is prohibited.");
+                return AttachResult.permissionDenied(
+                        pid,
+                        "Target JVM process is owned by a different user ("
+                                + targetUserName
+                                + "). Cross-user attachment is prohibited.");
             }
         }
 
@@ -127,7 +134,8 @@ public class JvmAttachService {
     AttachResult mapAttachException(String pid, Exception e) {
         if (e instanceof AttachNotSupportedException) {
             String msg = e.getMessage() != null ? e.getMessage() : "";
-            if (msg.toLowerCase().contains("different") || msg.toLowerCase().contains("namespace")) {
+            if (msg.toLowerCase().contains("different")
+                    || msg.toLowerCase().contains("namespace")) {
                 return AttachResult.unsupportedNamespace(pid, msg);
             }
             return AttachResult.error(pid, "Attach not supported for PID " + pid + ": " + msg);
@@ -142,11 +150,17 @@ public class JvmAttachService {
             }
             return AttachResult.error(pid, "I/O failure attaching to PID " + pid + ": " + msg);
         } else {
-            return AttachResult.error(pid, "Unexpected error attaching to PID " + pid + ": " + (e != null ? e.getMessage() : ""));
+            return AttachResult.error(
+                    pid,
+                    "Unexpected error attaching to PID "
+                            + pid
+                            + ": "
+                            + (e != null ? e.getMessage() : ""));
         }
     }
 
-    static boolean isCrossUser(java.util.Optional<String> currentUser, java.util.Optional<String> targetUser) {
+    static boolean isCrossUser(
+            java.util.Optional<String> currentUser, java.util.Optional<String> targetUser) {
         if (currentUser.isPresent() && targetUser.isPresent()) {
             if (System.getProperty("os.name", "").startsWith("Windows")) {
                 return !currentUser.get().equalsIgnoreCase(targetUser.get());

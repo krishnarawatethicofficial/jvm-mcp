@@ -8,7 +8,4 @@ package dev.jvmmcp.core.model;
  * @param unloadedClassCount total number of classes unloaded since JVM startup
  */
 public record ClassLoadingInfo(
-    long loadedClassCount,
-    long totalLoadedClasses,
-    long unloadedClassCount
-) {}
+        long loadedClassCount, long totalLoadedClasses, long unloadedClassCount) {}

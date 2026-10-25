@@ -1,11 +1,13 @@
 package dev.jvmmcp;
 
 import dev.jvmmcp.core.attach.JvmAttachService;
+import java.util.concurrent.Callable;
 import picocli.CommandLine.Command;
 
-import java.util.concurrent.Callable;
-
-@Command(name = "doctor", mixinStandardHelpOptions = true, description = "Check environment readiness for JVM-MCP")
+@Command(
+        name = "doctor",
+        mixinStandardHelpOptions = true,
+        description = "Check environment readiness for JVM-MCP")
 public class DoctorCommand implements Callable<Integer> {
 
     private final JvmAttachService attachService;
@@ -33,7 +35,10 @@ public class DoctorCommand implements Callable<Integer> {
 
         System.out.println("Checking JVM Runtime Compatibility...");
         boolean javaVersionOk = checkJavaVersion(Runtime.version(), System.out);
-        checkJvmVendor(System.getProperty("java.vendor", ""), System.getProperty("java.vm.name", ""), System.out);
+        checkJvmVendor(
+                System.getProperty("java.vendor", ""),
+                System.getProperty("java.vm.name", ""),
+                System.out);
         checkContainerEnvironment(System.out);
 
         String osName = System.getProperty("os.name", "").toLowerCase();
@@ -46,14 +51,21 @@ public class DoctorCommand implements Callable<Integer> {
         try {
             var jvms = attachService.listJvms();
             System.out.println("[OK] Attach API is functioning.");
-            System.out.println("[OK] Found " + jvms.size() + " local Java processes accessible to user '" + System.getProperty("user.name") + "'.");
-            
+            System.out.println(
+                    "[OK] Found "
+                            + jvms.size()
+                            + " local Java processes accessible to user '"
+                            + System.getProperty("user.name")
+                            + "'.");
+
             if (jvms.isEmpty()) {
-                System.out.println("\nNote: No Java processes found. Ensure your target applications are running as the same OS user.");
+                System.out.println(
+                        "\nNote: No Java processes found. Ensure your target applications are running as the same OS user.");
             }
         } catch (Exception e) {
             System.out.println("[ERROR] Attach API failed to initialize: " + e.getMessage());
-            System.out.println("    Resolution: Ensure you are running this CLI as the same user as the target JVM.");
+            System.out.println(
+                    "    Resolution: Ensure you are running this CLI as the same user as the target JVM.");
             return 1;
         }
 
@@ -69,7 +81,10 @@ public class DoctorCommand implements Callable<Integer> {
     static boolean checkJavaVersion(Runtime.Version version, java.io.PrintStream out) {
         int feature = version.feature();
         if (feature < 21) {
-            out.println("[ERROR] Java 21 or higher is required (current: " + feature + "). Virtual threads and standard features require JDK 21+.");
+            out.println(
+                    "[ERROR] Java 21 or higher is required (current: "
+                            + feature
+                            + "). Virtual threads and standard features require JDK 21+.");
             return false;
         }
         out.println("[OK] Java version " + feature + " meets the minimum requirement (Java 21+).");
@@ -77,21 +92,36 @@ public class DoctorCommand implements Callable<Integer> {
     }
 
     static void checkJvmVendor(String vendor, String vmName, java.io.PrintStream out) {
-        String combined = ((vendor != null ? vendor : "") + " " + (vmName != null ? vmName : "")).toLowerCase();
-        if (combined.contains("openj9") || combined.contains("semeru") || combined.contains("ibm")) {
-            out.println("[!] Detected OpenJ9 / IBM JVM. HotSpot Attach API (jdk.attach) has limited compatibility. Use Actuator HTTP mode if local attach fails.");
+        String combined =
+                ((vendor != null ? vendor : "") + " " + (vmName != null ? vmName : ""))
+                        .toLowerCase();
+        if (combined.contains("openj9")
+                || combined.contains("semeru")
+                || combined.contains("ibm")) {
+            out.println(
+                    "[!] Detected OpenJ9 / IBM JVM. HotSpot Attach API (jdk.attach) has limited compatibility. Use Actuator HTTP mode if local attach fails.");
         } else {
-            out.println("[OK] HotSpot-compatible JVM detected (" + (vendor != null && !vendor.isBlank() ? vendor : "Standard") + "). Dynamic Attach API fully supported.");
+            out.println(
+                    "[OK] HotSpot-compatible JVM detected ("
+                            + (vendor != null && !vendor.isBlank() ? vendor : "Standard")
+                            + "). Dynamic Attach API fully supported.");
         }
     }
 
     static void checkContainerEnvironment(java.io.PrintStream out) {
-        checkContainerEnvironment(java.nio.file.Path.of("/.dockerenv"), java.nio.file.Path.of("/run/.containerenv"), out);
+        checkContainerEnvironment(
+                java.nio.file.Path.of("/.dockerenv"),
+                java.nio.file.Path.of("/run/.containerenv"),
+                out);
     }
 
-    static void checkContainerEnvironment(java.nio.file.Path dockerenv, java.nio.file.Path containerenv, java.io.PrintStream out) {
+    static void checkContainerEnvironment(
+            java.nio.file.Path dockerenv,
+            java.nio.file.Path containerenv,
+            java.io.PrintStream out) {
         if (java.nio.file.Files.exists(dockerenv) || java.nio.file.Files.exists(containerenv)) {
-            out.println("[!] Container environment detected. JVM Attach API requires sharing the host PID namespace (--pid=host) or executing within the same container namespace.");
+            out.println(
+                    "[!] Container environment detected. JVM Attach API requires sharing the host PID namespace (--pid=host) or executing within the same container namespace.");
         }
     }
 
@@ -104,9 +134,13 @@ public class DoctorCommand implements Callable<Integer> {
             try {
                 String val = java.nio.file.Files.readString(ptracePath).trim();
                 if ("0".equals(val)) {
-                    out.println("[OK] Linux yama/ptrace_scope is 0 (classic ptrace permissions; unrestricted same-user attach).");
+                    out.println(
+                            "[OK] Linux yama/ptrace_scope is 0 (classic ptrace permissions; unrestricted same-user attach).");
                 } else {
-                    out.println("[!] Linux yama/ptrace_scope is set to " + val + ". Non-child attach requires target JVM to allow ptrace or matching UID/CAP_SYS_PTRACE capability.");
+                    out.println(
+                            "[!] Linux yama/ptrace_scope is set to "
+                                    + val
+                                    + ". Non-child attach requires target JVM to allow ptrace or matching UID/CAP_SYS_PTRACE capability.");
                 }
             } catch (Exception ignored) {
                 // Ignore if permission denied reading procfs

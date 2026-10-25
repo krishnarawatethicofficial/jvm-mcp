@@ -1,14 +1,13 @@
 package dev.jvmmcp.server.tool;
 
 import dev.jvmmcp.core.util.SensitiveDataRedactor;
-
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
 
 /**
- * Manages registration and lookup of ToolHandlers and delegates execution.
- * Enforces per-tool execution timeouts and automatic redaction of operational secrets.
+ * Manages registration and lookup of ToolHandlers and delegates execution. Enforces per-tool
+ * execution timeouts and automatic redaction of operational secrets.
  */
 public class ToolRegistry implements AutoCloseable {
 
@@ -67,41 +66,71 @@ public class ToolRegistry implements AutoCloseable {
         ToolHandler handler = toolName != null ? handlerMap.get(toolName) : null;
         if (handler == null) {
             return Map.of(
-                "content", List.of(Map.of("type", "text", "text", "Unknown tool: " + toolName)),
-                "isError", true
-            );
+                    "content",
+                    List.of(Map.of("type", "text", "text", "Unknown tool: " + toolName)),
+                    "isError",
+                    true);
         }
 
-        CompletableFuture<Map<String, Object>> future = CompletableFuture.supplyAsync(() -> {
-            try {
-                return handler.execute(toolName, arguments);
-            } catch (Exception e) {
-                throw new CompletionException(e);
-            }
-        }, executorService);
+        CompletableFuture<Map<String, Object>> future =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return handler.execute(toolName, arguments);
+                            } catch (Exception e) {
+                                throw new CompletionException(e);
+                            }
+                        },
+                        executorService);
 
         try {
-            Map<String, Object> rawResult = future.get(toolTimeout.toMillis(), TimeUnit.MILLISECONDS);
+            Map<String, Object> rawResult =
+                    future.get(toolTimeout.toMillis(), TimeUnit.MILLISECONDS);
             return sanitizeResult(rawResult);
         } catch (TimeoutException e) {
             future.cancel(true);
             return Map.of(
-                "content", List.of(Map.of("type", "text", "text", "Tool execution timed out after " + toolTimeout.toSeconds() + " seconds: " + toolName)),
-                "isError", true
-            );
+                    "content",
+                    List.of(
+                            Map.of(
+                                    "type",
+                                    "text",
+                                    "text",
+                                    "Tool execution timed out after "
+                                            + toolTimeout.toSeconds()
+                                            + " seconds: "
+                                            + toolName)),
+                    "isError",
+                    true);
         } catch (ExecutionException e) {
             Throwable cause = e.getCause() != null ? e.getCause() : e;
-            String sanitizedMsg = SensitiveDataRedactor.redact(cause.getMessage() != null ? cause.getMessage() : "Execution error");
+            String sanitizedMsg =
+                    SensitiveDataRedactor.redact(
+                            cause.getMessage() != null ? cause.getMessage() : "Execution error");
             return Map.of(
-                "content", List.of(Map.of("type", "text", "text", "Error executing tool: " + sanitizedMsg)),
-                "isError", true
-            );
+                    "content",
+                    List.of(
+                            Map.of(
+                                    "type",
+                                    "text",
+                                    "text",
+                                    "Error executing tool: " + sanitizedMsg)),
+                    "isError",
+                    true);
         } catch (Exception e) {
-            String sanitizedMsg = SensitiveDataRedactor.redact(e.getMessage() != null ? e.getMessage() : "Execution error");
+            String sanitizedMsg =
+                    SensitiveDataRedactor.redact(
+                            e.getMessage() != null ? e.getMessage() : "Execution error");
             return Map.of(
-                "content", List.of(Map.of("type", "text", "text", "Error executing tool: " + sanitizedMsg)),
-                "isError", true
-            );
+                    "content",
+                    List.of(
+                            Map.of(
+                                    "type",
+                                    "text",
+                                    "text",
+                                    "Error executing tool: " + sanitizedMsg)),
+                    "isError",
+                    true);
         }
     }
 

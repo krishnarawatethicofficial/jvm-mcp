@@ -1,28 +1,26 @@
 package dev.jvmmcp.core.model;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.sun.tools.attach.VirtualMachine;
 import dev.jvmmcp.core.attach.AttachResult;
 import dev.jvmmcp.core.attach.AttachStatus;
 import dev.jvmmcp.core.attach.FrameworkDetector;
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryUsage;
+import java.lang.management.ThreadInfo;
+import java.lang.management.ThreadMXBean;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryUsage;
-import java.lang.management.ThreadInfo;
-import java.lang.management.ThreadMXBean;
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
 @ExtendWith(MockitoExtension.class)
 class ModelCoverageTest {
 
-    @Mock
-    private VirtualMachine mockVm;
+    @Mock private VirtualMachine mockVm;
 
     @Test
     @DisplayName("AttachResult factory methods construct accurate states")
@@ -59,12 +57,24 @@ class ModelCoverageTest {
     void shouldClassifyFrameworks() {
         assertThat(FrameworkDetector.detect(null, null)).isEqualTo(Framework.UNKNOWN);
         assertThat(FrameworkDetector.detect("   ", "")).isEqualTo(Framework.UNKNOWN);
-        assertThat(FrameworkDetector.detect("demo-service", "org.springframework.boot.SpringApplication")).isEqualTo(Framework.SPRING_BOOT);
-        assertThat(FrameworkDetector.detect("quarkus-app.jar", "io.quarkus.runner.Main")).isEqualTo(Framework.QUARKUS);
-        assertThat(FrameworkDetector.detect("micronaut-app", "io.micronaut.Application")).isEqualTo(Framework.MICRONAUT);
-        assertThat(FrameworkDetector.detect("java -jar plain.jar", "com.example.App")).isEqualTo(Framework.PLAIN_JAVA);
+        assertThat(
+                        FrameworkDetector.detect(
+                                "demo-service", "org.springframework.boot.SpringApplication"))
+                .isEqualTo(Framework.SPRING_BOOT);
+        assertThat(FrameworkDetector.detect("quarkus-app.jar", "io.quarkus.runner.Main"))
+                .isEqualTo(Framework.QUARKUS);
+        assertThat(FrameworkDetector.detect("micronaut-app", "io.micronaut.Application"))
+                .isEqualTo(Framework.MICRONAUT);
+        assertThat(FrameworkDetector.detect("java -jar plain.jar", "com.example.App"))
+                .isEqualTo(Framework.PLAIN_JAVA);
 
-        assertThat(Framework.values()).contains(Framework.SPRING_BOOT, Framework.QUARKUS, Framework.MICRONAUT, Framework.PLAIN_JAVA, Framework.UNKNOWN);
+        assertThat(Framework.values())
+                .contains(
+                        Framework.SPRING_BOOT,
+                        Framework.QUARKUS,
+                        Framework.MICRONAUT,
+                        Framework.PLAIN_JAVA,
+                        Framework.UNKNOWN);
         assertThat(Framework.valueOf("SPRING_BOOT")).isEqualTo(Framework.SPRING_BOOT);
     }
 
@@ -75,7 +85,8 @@ class ModelCoverageTest {
         assertThat(nullInfo.usedBytes()).isZero();
         assertThat(nullInfo.usedPercent()).isZero();
 
-        MemoryUsage normalUsage = new MemoryUsage(100, 20 * 1024 * 1024, 50 * 1024 * 1024, 100 * 1024 * 1024);
+        MemoryUsage normalUsage =
+                new MemoryUsage(100, 20 * 1024 * 1024, 50 * 1024 * 1024, 100 * 1024 * 1024);
         MemoryUsageInfo normalInfo = MemoryUsageInfo.from(normalUsage);
         assertThat(normalInfo.usedPercent()).isEqualTo(20.0);
         assertThat(normalInfo.usedMb()).isEqualTo(20.0);
@@ -90,20 +101,25 @@ class ModelCoverageTest {
     }
 
     @Test
-    @DisplayName("MemoryUsageInfo reports negative max as unknown sentinel and keeps max=0 as a real bound")
+    @DisplayName(
+            "MemoryUsageInfo reports negative max as unknown sentinel and keeps max=0 as a real bound")
     void shouldReportUnknownSentinelOnlyForNegativeMax() {
         long mb = 1024L * 1024L;
 
-        // JMX reports no upper bound as max == -1 (e.g. non-heap / Metaspace): unknown, not committed.
-        MemoryUsageInfo unknownMax = MemoryUsageInfo.from(new MemoryUsage(mb, 25 * mb, 50 * mb, -1));
+        // JMX reports no upper bound as max == -1 (e.g. non-heap / Metaspace): unknown, not
+        // committed.
+        MemoryUsageInfo unknownMax =
+                MemoryUsageInfo.from(new MemoryUsage(mb, 25 * mb, 50 * mb, -1));
         assertThat(unknownMax.maxBytes()).isEqualTo(-1L);
         assertThat(unknownMax.maxMb()).isEqualTo(-1.0);
         assertThat(unknownMax.usedPercent()).isEqualTo(-1.0);
         assertThat(unknownMax.committedBytes()).isEqualTo(50 * mb);
         assertThat(unknownMax.usedMb()).isEqualTo(25.0);
 
-        // Exact bounded positive max keeps legacy semantics: ratio and quota are taken from max, not committed.
-        MemoryUsageInfo boundedMax = MemoryUsageInfo.from(new MemoryUsage(0, 20 * mb, 50 * mb, 100 * mb));
+        // Exact bounded positive max keeps legacy semantics: ratio and quota are taken from max,
+        // not committed.
+        MemoryUsageInfo boundedMax =
+                MemoryUsageInfo.from(new MemoryUsage(0, 20 * mb, 50 * mb, 100 * mb));
         assertThat(boundedMax.maxBytes()).isEqualTo(100 * mb);
         assertThat(boundedMax.maxMb()).isEqualTo(100.0);
         assertThat(boundedMax.usedPercent()).isEqualTo(20.0);
@@ -119,7 +135,8 @@ class ModelCoverageTest {
         assertThat(nullInfo.usedMb()).isZero();
         assertThat(nullInfo.maxMb()).isZero();
 
-        // max == 0 is a valid JMX bound (used/committed are 0), so it must never become the unknown sentinel.
+        // max == 0 is a valid JMX bound (used/committed are 0), so it must never become the unknown
+        // sentinel.
         MemoryUsageInfo zeroMax = MemoryUsageInfo.from(new MemoryUsage(0, 0, 0, 0));
         assertThat(zeroMax.maxBytes()).isZero();
         assertThat(zeroMax.maxMb()).isZero();
@@ -133,16 +150,21 @@ class ModelCoverageTest {
         assertThat(nullFrame.className()).isEqualTo("Unknown");
         assertThat(nullFrame.toString()).contains("Unknown Source");
 
-        StackTraceElement nativeElem = new StackTraceElement("com.example.NativeUtil", "doWork", null, -2);
+        StackTraceElement nativeElem =
+                new StackTraceElement("com.example.NativeUtil", "doWork", null, -2);
         ThreadStackFrame nativeFrame = ThreadStackFrame.from(nativeElem);
         assertThat(nativeFrame.isNativeMethod()).isTrue();
-        assertThat(nativeFrame.toString()).isEqualTo("com.example.NativeUtil.doWork(Native Method)");
+        assertThat(nativeFrame.toString())
+                .isEqualTo("com.example.NativeUtil.doWork(Native Method)");
 
-        StackTraceElement fileLineElem = new StackTraceElement("com.example.Service", "process", "Service.java", 42);
+        StackTraceElement fileLineElem =
+                new StackTraceElement("com.example.Service", "process", "Service.java", 42);
         ThreadStackFrame fileLineFrame = ThreadStackFrame.from(fileLineElem);
-        assertThat(fileLineFrame.toString()).isEqualTo("com.example.Service.process(Service.java:42)");
+        assertThat(fileLineFrame.toString())
+                .isEqualTo("com.example.Service.process(Service.java:42)");
 
-        StackTraceElement noFileElem = new StackTraceElement("com.example.Service", "process", null, -1);
+        StackTraceElement noFileElem =
+                new StackTraceElement("com.example.Service", "process", null, -1);
         ThreadStackFrame noFileFrame = ThreadStackFrame.from(noFileElem);
         assertThat(noFileFrame.toString()).isEqualTo("com.example.Service.process(Unknown Source)");
     }
@@ -153,7 +175,8 @@ class ModelCoverageTest {
         assertThat(ThreadDetail.from(null)).isNull();
 
         ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
-        ThreadInfo currentInfo = threadMXBean.getThreadInfo(Thread.currentThread().threadId(), Integer.MAX_VALUE);
+        ThreadInfo currentInfo =
+                threadMXBean.getThreadInfo(Thread.currentThread().threadId(), Integer.MAX_VALUE);
 
         ThreadDetail detail = ThreadDetail.from(currentInfo);
         assertThat(detail).isNotNull();
@@ -169,9 +192,9 @@ class ModelCoverageTest {
         assertThat(none.deadlockCount()).isZero();
         assertThat(none.chain()).isEmpty();
 
-        DeadlockedThreadDetail detail = new DeadlockedThreadDetail(
-            1L, "worker", "BLOCKED", "MonitorLock", 2L, "owner", "stackTop"
-        );
+        DeadlockedThreadDetail detail =
+                new DeadlockedThreadDetail(
+                        1L, "worker", "BLOCKED", "MonitorLock", 2L, "owner", "stackTop");
         DeadlockReport detected = DeadlockReport.detected(List.of(detail), "Fix deadlock");
         assertThat(detected.status()).isEqualTo("DETECTED");
         assertThat(detected.deadlockCount()).isEqualTo(1);
@@ -182,7 +205,8 @@ class ModelCoverageTest {
     @Test
     @DisplayName("ClassHistogramItem formats megabytes calculation")
     void shouldCalculateMegabytes() {
-        ClassHistogramItem item = ClassHistogramItem.of(1, 1000L, 2 * 1024 * 1024L, "java.lang.String");
+        ClassHistogramItem item =
+                ClassHistogramItem.of(1, 1000L, 2 * 1024 * 1024L, "java.lang.String");
         assertThat(item.megabytes()).isEqualTo(2.0);
         assertThat(item.className()).isEqualTo("java.lang.String");
     }
@@ -190,8 +214,10 @@ class ModelCoverageTest {
     @Test
     @DisplayName("SpringBeansReport aggregates beans across multiple contexts")
     void shouldAggregateAllBeans() {
-        SpringBeanDetail b1 = new SpringBeanDetail("b1", List.of(), "singleton", "T1", null, List.of());
-        SpringBeanDetail b2 = new SpringBeanDetail("b2", List.of(), "singleton", "T2", null, List.of());
+        SpringBeanDetail b1 =
+                new SpringBeanDetail("b1", List.of(), "singleton", "T1", null, List.of());
+        SpringBeanDetail b2 =
+                new SpringBeanDetail("b2", List.of(), "singleton", "T2", null, List.of());
 
         SpringContextBeans ctx1 = new SpringContextBeans("ctx1", null, 1, List.of(b1));
         SpringContextBeans ctx2 = new SpringContextBeans("ctx2", "ctx1", 1, List.of(b2));

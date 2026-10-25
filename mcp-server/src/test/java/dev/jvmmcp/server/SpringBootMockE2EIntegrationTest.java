@@ -1,21 +1,19 @@
 package dev.jvmmcp.server;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import com.sun.net.httpserver.HttpServer;
 import dev.jvmmcp.core.model.SpringBeanDetail;
 import dev.jvmmcp.core.model.SpringBeansReport;
 import dev.jvmmcp.core.model.SpringContextBeans;
-import dev.jvmmcp.core.spring.ActuatorClient;
 import dev.jvmmcp.core.spring.SpringBeansClient;
-import dev.jvmmcp.core.util.SimpleJson;
 import dev.jvmmcp.server.protocol.McpDispatcher;
 import dev.jvmmcp.server.tool.ActuatorToolHandler;
 import dev.jvmmcp.server.tool.SpringBeansToolHandler;
 import dev.jvmmcp.server.tool.ToolRegistry;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
@@ -24,15 +22,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.zip.GZIPOutputStream;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 /**
- * End-to-end integration test validating realistic Spring Boot inspection workflows
- * over the Model Context Protocol (MCP) JSON-RPC layer.
+ * End-to-end integration test validating realistic Spring Boot inspection workflows over the Model
+ * Context Protocol (MCP) JSON-RPC layer.
  */
 class SpringBootMockE2EIntegrationTest {
 
@@ -44,8 +41,11 @@ class SpringBootMockE2EIntegrationTest {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
 
         // 1. /actuator/health
-        server.createContext("/actuator/health", exchange -> {
-            String json = """
+        server.createContext(
+                "/actuator/health",
+                exchange -> {
+                    String json =
+                            """
                 {
                   "status": "UP",
                   "components": {
@@ -67,19 +67,23 @@ class SpringBootMockE2EIntegrationTest {
                   }
                 }
                 """;
-            byte[] resp = json.getBytes(StandardCharsets.UTF_8);
-            exchange.getResponseHeaders().set("Content-Type", "application/vnd.spring-boot.actuator.v3+json");
-            exchange.sendResponseHeaders(200, resp.length);
-            try (OutputStream os = exchange.getResponseBody()) {
-                os.write(resp);
-            }
-        });
+                    byte[] resp = json.getBytes(StandardCharsets.UTF_8);
+                    exchange.getResponseHeaders()
+                            .set("Content-Type", "application/vnd.spring-boot.actuator.v3+json");
+                    exchange.sendResponseHeaders(200, resp.length);
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(resp);
+                    }
+                });
 
         // 2. /actuator/metrics
-        server.createContext("/actuator/metrics", exchange -> {
-            String path = exchange.getRequestURI().getPath();
-            if (path.equals("/actuator/metrics")) {
-                String json = """
+        server.createContext(
+                "/actuator/metrics",
+                exchange -> {
+                    String path = exchange.getRequestURI().getPath();
+                    if (path.equals("/actuator/metrics")) {
+                        String json =
+                                """
                     {
                       "names": [
                         "jvm.memory.used",
@@ -88,14 +92,18 @@ class SpringBootMockE2EIntegrationTest {
                       ]
                     }
                     """;
-                byte[] resp = json.getBytes(StandardCharsets.UTF_8);
-                exchange.getResponseHeaders().set("Content-Type", "application/vnd.spring-boot.actuator.v3+json");
-                exchange.sendResponseHeaders(200, resp.length);
-                try (OutputStream os = exchange.getResponseBody()) {
-                    os.write(resp);
-                }
-            } else if (path.equals("/actuator/metrics/jvm.memory.used")) {
-                String json = """
+                        byte[] resp = json.getBytes(StandardCharsets.UTF_8);
+                        exchange.getResponseHeaders()
+                                .set(
+                                        "Content-Type",
+                                        "application/vnd.spring-boot.actuator.v3+json");
+                        exchange.sendResponseHeaders(200, resp.length);
+                        try (OutputStream os = exchange.getResponseBody()) {
+                            os.write(resp);
+                        }
+                    } else if (path.equals("/actuator/metrics/jvm.memory.used")) {
+                        String json =
+                                """
                     {
                       "name": "jvm.memory.used",
                       "description": "The amount of used memory",
@@ -108,15 +116,19 @@ class SpringBootMockE2EIntegrationTest {
                       ]
                     }
                     """;
-                byte[] resp = json.getBytes(StandardCharsets.UTF_8);
-                exchange.getResponseHeaders().set("Content-Type", "application/vnd.spring-boot.actuator.v3+json");
-                exchange.sendResponseHeaders(200, resp.length);
-                try (OutputStream os = exchange.getResponseBody()) {
-                    os.write(resp);
-                }
-            } else if (path.equals("/actuator/metrics/jvm.threads.live")) {
-                // Verify GZIP decompression support when client sends Accept-Encoding: gzip
-                String json = """
+                        byte[] resp = json.getBytes(StandardCharsets.UTF_8);
+                        exchange.getResponseHeaders()
+                                .set(
+                                        "Content-Type",
+                                        "application/vnd.spring-boot.actuator.v3+json");
+                        exchange.sendResponseHeaders(200, resp.length);
+                        try (OutputStream os = exchange.getResponseBody()) {
+                            os.write(resp);
+                        }
+                    } else if (path.equals("/actuator/metrics/jvm.threads.live")) {
+                        // Verify GZIP decompression support when client sends Accept-Encoding: gzip
+                        String json =
+                                """
                     {
                       "name": "jvm.threads.live",
                       "description": "The current number of live threads",
@@ -128,21 +140,24 @@ class SpringBootMockE2EIntegrationTest {
                       ]
                     }
                     """;
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                try (GZIPOutputStream gzos = new GZIPOutputStream(baos)) {
-                    gzos.write(json.getBytes(StandardCharsets.UTF_8));
-                }
-                byte[] gzipped = baos.toByteArray();
-                exchange.getResponseHeaders().set("Content-Type", "application/vnd.spring-boot.actuator.v3+json");
-                exchange.getResponseHeaders().set("Content-Encoding", "gzip");
-                exchange.sendResponseHeaders(200, gzipped.length);
-                try (OutputStream os = exchange.getResponseBody()) {
-                    os.write(gzipped);
-                }
-            } else {
-                exchange.sendResponseHeaders(404, -1);
-            }
-        });
+                        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                        try (GZIPOutputStream gzos = new GZIPOutputStream(baos)) {
+                            gzos.write(json.getBytes(StandardCharsets.UTF_8));
+                        }
+                        byte[] gzipped = baos.toByteArray();
+                        exchange.getResponseHeaders()
+                                .set(
+                                        "Content-Type",
+                                        "application/vnd.spring-boot.actuator.v3+json");
+                        exchange.getResponseHeaders().set("Content-Encoding", "gzip");
+                        exchange.sendResponseHeaders(200, gzipped.length);
+                        try (OutputStream os = exchange.getResponseBody()) {
+                            os.write(gzipped);
+                        }
+                    } else {
+                        exchange.sendResponseHeaders(404, -1);
+                    }
+                });
 
         server.start();
         int port = server.getAddress().getPort();
@@ -164,7 +179,8 @@ class SpringBootMockE2EIntegrationTest {
         McpDispatcher dispatcher = new McpDispatcher(registry, "jvm-mcp", "1.1.0-beta.1");
 
         // 1. Initialize
-        String initRequest = """
+        String initRequest =
+                """
             {
               "jsonrpc": "2.0",
               "id": 1,
@@ -185,7 +201,8 @@ class SpringBootMockE2EIntegrationTest {
         assertThat(initResult.get("protocolVersion")).isEqualTo("2024-11-05");
 
         // 2. Tools list
-        String listRequest = """
+        String listRequest =
+                """
             {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}
             """;
         Optional<Map<String, Object>> listOpt = dispatcher.dispatch(listRequest);
@@ -195,8 +212,8 @@ class SpringBootMockE2EIntegrationTest {
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> tools = (List<Map<String, Object>>) listResult.get("tools");
         assertThat(tools)
-            .extracting(t -> (String) t.get("name"))
-            .contains("get_actuator_health", "get_actuator_metrics");
+                .extracting(t -> (String) t.get("name"))
+                .contains("get_actuator_health", "get_actuator_metrics");
     }
 
     @Test
@@ -206,7 +223,9 @@ class SpringBootMockE2EIntegrationTest {
         registry.register(new ActuatorToolHandler());
         McpDispatcher dispatcher = new McpDispatcher(registry);
 
-        String callRequest = String.format("""
+        String callRequest =
+                String.format(
+                        """
             {
               "jsonrpc": "2.0",
               "id": 10,
@@ -218,7 +237,8 @@ class SpringBootMockE2EIntegrationTest {
                 }
               }
             }
-            """, serverBaseUrl);
+            """,
+                        serverBaseUrl);
 
         Optional<Map<String, Object>> callOpt = dispatcher.dispatch(callRequest);
         assertThat(callOpt).isPresent();
@@ -243,7 +263,9 @@ class SpringBootMockE2EIntegrationTest {
         McpDispatcher dispatcher = new McpDispatcher(registry);
 
         // Specific metric that returns gzipped content
-        String callRequest = String.format("""
+        String callRequest =
+                String.format(
+                        """
             {
               "jsonrpc": "2.0",
               "id": 11,
@@ -256,7 +278,8 @@ class SpringBootMockE2EIntegrationTest {
                 }
               }
             }
-            """, serverBaseUrl);
+            """,
+                        serverBaseUrl);
 
         Optional<Map<String, Object>> callOpt = dispatcher.dispatch(callRequest);
         assertThat(callOpt).isPresent();
@@ -270,40 +293,45 @@ class SpringBootMockE2EIntegrationTest {
     }
 
     @Test
-    @DisplayName("End-to-End: Execute list_spring_beans and get_bean_detail with numeric string PID")
+    @DisplayName(
+            "End-to-End: Execute list_spring_beans and get_bean_detail with numeric string PID")
     void testSpringBeansInspectionEndToEnd() throws Exception {
         SpringBeansClient mockClient = mock(SpringBeansClient.class);
-        dev.jvmmcp.core.attach.JvmAttachService mockAttachService = mock(dev.jvmmcp.core.attach.JvmAttachService.class);
-        when(mockAttachService.attach("12345")).thenReturn(dev.jvmmcp.core.attach.AttachResult.success("12345", null));
+        dev.jvmmcp.core.attach.JvmAttachService mockAttachService =
+                mock(dev.jvmmcp.core.attach.JvmAttachService.class);
+        when(mockAttachService.attach("12345"))
+                .thenReturn(dev.jvmmcp.core.attach.AttachResult.success("12345", null));
 
-        SpringBeanDetail userRepoBean = new SpringBeanDetail(
-            "userRepository",
-            List.of(),
-            "singleton",
-            "com.example.repository.UserRepository",
-            null,
-            List.of("dataSource")
-        );
-        SpringBeansReport report = new SpringBeansReport(
-            12345L,
-            "JMX",
-            1,
-            List.of(new SpringContextBeans("root", null, 1, List.of(userRepoBean)))
-        );
-        when(mockClient.inspectBeansWithJmxProvider(org.mockito.ArgumentMatchers.eq(12345L), any(), any(), any()))
-            .thenReturn(report);
+        SpringBeanDetail userRepoBean =
+                new SpringBeanDetail(
+                        "userRepository",
+                        List.of(),
+                        "singleton",
+                        "com.example.repository.UserRepository",
+                        null,
+                        List.of("dataSource"));
+        SpringBeansReport report =
+                new SpringBeansReport(
+                        12345L,
+                        "JMX",
+                        1,
+                        List.of(new SpringContextBeans("root", null, 1, List.of(userRepoBean))));
+        when(mockClient.inspectBeansWithJmxProvider(
+                        org.mockito.ArgumentMatchers.eq(12345L), any(), any(), any()))
+                .thenReturn(report);
 
         ToolRegistry registry = new ToolRegistry();
         // Register SpringBeansToolHandler with mock attachService and mock client
-        registry.register(new SpringBeansToolHandler(
-            mockAttachService,
-            mockClient,
-            (vm, pid) -> mock(dev.jvmmcp.core.jmx.JmxConnectionManager.class)
-        ));
+        registry.register(
+                new SpringBeansToolHandler(
+                        mockAttachService,
+                        mockClient,
+                        (vm, pid) -> mock(dev.jvmmcp.core.jmx.JmxConnectionManager.class)));
         McpDispatcher dispatcher = new McpDispatcher(registry);
 
         // 1. list_spring_beans using stringified PID (verifying LLM robustness from Issue #162)
-        String listBeansCall = """
+        String listBeansCall =
+                """
             {
               "jsonrpc": "2.0",
               "id": 20,
@@ -322,11 +350,13 @@ class SpringBootMockE2EIntegrationTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> listResult = (Map<String, Object>) listOpt.get().get("result");
         @SuppressWarnings("unchecked")
-        List<Map<String, Object>> listContent = (List<Map<String, Object>>) listResult.get("content");
+        List<Map<String, Object>> listContent =
+                (List<Map<String, Object>>) listResult.get("content");
         assertThat(listContent.get(0).get("text").toString()).contains("userRepository");
 
         // 2. get_bean_detail for existing bean
-        String getBeanCall = """
+        String getBeanCall =
+                """
             {
               "jsonrpc": "2.0",
               "id": 21,
@@ -349,7 +379,8 @@ class SpringBootMockE2EIntegrationTest {
         assertThat(getContent.get(0).get("text").toString()).contains("userRepository");
 
         // 3. get_bean_detail for non-existing bean (verifying Issue #112 isError: true formatting)
-        String getMissingBeanCall = """
+        String getMissingBeanCall =
+                """
             {
               "jsonrpc": "2.0",
               "id": 22,
@@ -369,7 +400,8 @@ class SpringBootMockE2EIntegrationTest {
         Map<String, Object> missingResult = (Map<String, Object>) missingOpt.get().get("result");
         assertThat(missingResult.get("isError")).isEqualTo(true);
         @SuppressWarnings("unchecked")
-        List<Map<String, Object>> missingContent = (List<Map<String, Object>>) missingResult.get("content");
+        List<Map<String, Object>> missingContent =
+                (List<Map<String, Object>>) missingResult.get("content");
         assertThat(missingContent.get(0).get("text").toString()).contains("Bean not found");
     }
 }

@@ -15,39 +15,36 @@ import java.util.List;
  * @param bufferPools list of direct and mapped buffer pool statistics
  */
 public record HeapSummary(
-    long pid,
-    MemoryUsageInfo heap,
-    MemoryUsageInfo nonHeap,
-    List<MemoryPoolInfo> pools,
-    List<GarbageCollectorInfo> garbageCollectors,
-    MemoryPressure pressure,
-    ClassLoadingInfo classLoading,
-    List<BufferPoolInfo> bufferPools
-) {
-    public HeapSummary {
-        bufferPools = bufferPools == null ? List.of() : bufferPools;
-    }
-
-    public HeapSummary(
         long pid,
         MemoryUsageInfo heap,
         MemoryUsageInfo nonHeap,
         List<MemoryPoolInfo> pools,
         List<GarbageCollectorInfo> garbageCollectors,
         MemoryPressure pressure,
-        ClassLoadingInfo classLoading
-    ) {
+        ClassLoadingInfo classLoading,
+        List<BufferPoolInfo> bufferPools) {
+    public HeapSummary {
+        bufferPools = bufferPools == null ? List.of() : bufferPools;
+    }
+
+    public HeapSummary(
+            long pid,
+            MemoryUsageInfo heap,
+            MemoryUsageInfo nonHeap,
+            List<MemoryPoolInfo> pools,
+            List<GarbageCollectorInfo> garbageCollectors,
+            MemoryPressure pressure,
+            ClassLoadingInfo classLoading) {
         this(pid, heap, nonHeap, pools, garbageCollectors, pressure, classLoading, List.of());
     }
 
     public HeapSummary(
-        long pid,
-        MemoryUsageInfo heap,
-        MemoryUsageInfo nonHeap,
-        List<MemoryPoolInfo> pools,
-        List<GarbageCollectorInfo> garbageCollectors,
-        MemoryPressure pressure
-    ) {
+            long pid,
+            MemoryUsageInfo heap,
+            MemoryUsageInfo nonHeap,
+            List<MemoryPoolInfo> pools,
+            List<GarbageCollectorInfo> garbageCollectors,
+            MemoryPressure pressure) {
         this(pid, heap, nonHeap, pools, garbageCollectors, pressure, null, List.of());
     }
 }

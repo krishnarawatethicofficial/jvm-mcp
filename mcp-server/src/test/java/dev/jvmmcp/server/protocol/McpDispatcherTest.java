@@ -1,16 +1,15 @@
 package dev.jvmmcp.server.protocol;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import dev.jvmmcp.server.tool.ToolHandler;
 import dev.jvmmcp.server.tool.ToolRegistry;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 class McpDispatcherTest {
 
@@ -20,22 +19,30 @@ class McpDispatcherTest {
     @BeforeEach
     void setUp() {
         registry = new ToolRegistry();
-        registry.register(new ToolHandler() {
-            @Override
-            public List<String> toolNames() {
-                return List.of("mock_tool");
-            }
+        registry.register(
+                new ToolHandler() {
+                    @Override
+                    public List<String> toolNames() {
+                        return List.of("mock_tool");
+                    }
 
-            @Override
-            public List<Map<String, Object>> toolDefinitions() {
-                return List.of(Map.of("name", "mock_tool", "description", "Mock tool description"));
-            }
+                    @Override
+                    public List<Map<String, Object>> toolDefinitions() {
+                        return List.of(
+                                Map.of(
+                                        "name",
+                                        "mock_tool",
+                                        "description",
+                                        "Mock tool description"));
+                    }
 
-            @Override
-            public Map<String, Object> execute(String toolName, Map<String, Object> arguments) {
-                return Map.of("content", List.of(Map.of("type", "text", "text", "mock_result")));
-            }
-        });
+                    @Override
+                    public Map<String, Object> execute(
+                            String toolName, Map<String, Object> arguments) {
+                        return Map.of(
+                                "content", List.of(Map.of("type", "text", "text", "mock_result")));
+                    }
+                });
         dispatcher = new McpDispatcher(registry, "test-mcp", "2.0.0");
     }
 
@@ -93,7 +100,8 @@ class McpDispatcherTest {
     @Test
     @DisplayName("dispatch handles tools/call properly")
     void testToolsCallSuccess() {
-        String line = "{\"jsonrpc\":\"2.0\",\"id\":200,\"method\":\"tools/call\",\"params\":{\"name\":\"mock_tool\",\"arguments\":{}}}";
+        String line =
+                "{\"jsonrpc\":\"2.0\",\"id\":200,\"method\":\"tools/call\",\"params\":{\"name\":\"mock_tool\",\"arguments\":{}}}";
         Optional<Map<String, Object>> response = dispatcher.dispatch(line);
 
         assertThat(response).isPresent();
@@ -184,10 +192,12 @@ class McpDispatcherTest {
         Map<String, Object> invalidParams = dispatcher.formatInvalidParams(43, "bad parameter");
         assertThat(invalidParams.get("id")).isEqualTo(43);
         assertThat(((Map<?, ?>) invalidParams.get("error")).get("code")).isEqualTo(-32602);
-        assertThat(((Map<?, ?>) invalidParams.get("error")).get("message")).isEqualTo("bad parameter");
+        assertThat(((Map<?, ?>) invalidParams.get("error")).get("message"))
+                .isEqualTo("bad parameter");
 
         Map<String, Object> defaultInvalidParams = dispatcher.formatInvalidParams(44, null);
-        assertThat(((Map<?, ?>) defaultInvalidParams.get("error")).get("message")).isEqualTo("Invalid params");
+        assertThat(((Map<?, ?>) defaultInvalidParams.get("error")).get("message"))
+                .isEqualTo("Invalid params");
 
         Map<String, Object> internalErr = dispatcher.formatInternalError(45, "database down");
         assertThat(internalErr.get("id")).isEqualTo(45);
@@ -235,7 +245,8 @@ class McpDispatcherTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> error = (Map<String, Object>) resp.get("error");
         assertThat(error.get("code")).isEqualTo(-32600);
-        assertThat(error.get("message").toString()).contains("Invalid Request: 'id' must be a String, Number, or null");
+        assertThat(error.get("message").toString())
+                .contains("Invalid Request: 'id' must be a String, Number, or null");
     }
 
     @Test
@@ -251,17 +262,22 @@ class McpDispatcherTest {
     }
 
     @Test
-    @DisplayName("dispatch sanitizes internal errors and does not expose raw exception text to client")
+    @DisplayName(
+            "dispatch sanitizes internal errors and does not expose raw exception text to client")
     void testInternalErrorSanitization() {
-        ToolRegistry throwingRegistry = new ToolRegistry() {
-            @Override
-            public Map<String, Object> execute(String toolName, Map<String, Object> arguments) {
-                throw new RuntimeException("Sensitive PostgreSQL db password: secret123 at /etc/passwd");
-            }
-        };
+        ToolRegistry throwingRegistry =
+                new ToolRegistry() {
+                    @Override
+                    public Map<String, Object> execute(
+                            String toolName, Map<String, Object> arguments) {
+                        throw new RuntimeException(
+                                "Sensitive PostgreSQL db password: secret123 at /etc/passwd");
+                    }
+                };
         McpDispatcher throwingDispatcher = new McpDispatcher(throwingRegistry);
 
-        String line = "{\"jsonrpc\":\"2.0\",\"id\":500,\"method\":\"tools/call\",\"params\":{\"name\":\"faulty_tool\",\"arguments\":{}}}";
+        String line =
+                "{\"jsonrpc\":\"2.0\",\"id\":500,\"method\":\"tools/call\",\"params\":{\"name\":\"faulty_tool\",\"arguments\":{}}}";
         Optional<Map<String, Object>> response = throwingDispatcher.dispatch(line);
 
         assertThat(response).isPresent();
@@ -275,4 +291,3 @@ class McpDispatcherTest {
         assertThat(msg).contains("Internal error");
     }
 }
-

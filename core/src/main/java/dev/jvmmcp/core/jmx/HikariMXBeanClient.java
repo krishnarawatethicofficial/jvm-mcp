@@ -3,15 +3,14 @@ package dev.jvmmcp.core.jmx;
 import dev.jvmmcp.core.model.HikariPoolHealth;
 import dev.jvmmcp.core.model.HikariPoolStatistics;
 import dev.jvmmcp.core.port.HikariDiagnosticPort;
-
-import javax.management.MBeanServerConnection;
-import javax.management.ObjectName;
 import java.io.IOException;
 import java.lang.System.Logger;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import javax.management.MBeanServerConnection;
+import javax.management.ObjectName;
 
 public class HikariMXBeanClient implements HikariDiagnosticPort {
 
@@ -31,21 +30,11 @@ public class HikariMXBeanClient implements HikariDiagnosticPort {
     @Override
     public List<HikariPoolStatistics> getPools() throws IOException {
         try {
-            ObjectName legacyPattern = new ObjectName(
-                HIKARI_POOL_DOMAIN + ":type=Pool (*)"
-            );
-            ObjectName standardPattern = new ObjectName(
-                HIKARI_POOL_DOMAIN + ":type=Pool,*"
-            );
+            ObjectName legacyPattern = new ObjectName(HIKARI_POOL_DOMAIN + ":type=Pool (*)");
+            ObjectName standardPattern = new ObjectName(HIKARI_POOL_DOMAIN + ":type=Pool,*");
 
-            Set<ObjectName> poolNames = new LinkedHashSet<>(mbsc.queryNames(
-                legacyPattern,
-                null
-            ));
-            poolNames.addAll(mbsc.queryNames(
-                standardPattern,
-                null
-            ));
+            Set<ObjectName> poolNames = new LinkedHashSet<>(mbsc.queryNames(legacyPattern, null));
+            poolNames.addAll(mbsc.queryNames(standardPattern, null));
 
             List<HikariPoolStatistics> pools = new ArrayList<>();
 
@@ -53,13 +42,19 @@ public class HikariMXBeanClient implements HikariDiagnosticPort {
                 try {
                     pools.add(readPool(poolName));
                 } catch (IOException e) {
-                    LOGGER.log(Logger.Level.WARNING, "Skipping unreadable HikariCP pool {0}: {1}", poolName, e.getMessage());
+                    LOGGER.log(
+                            Logger.Level.WARNING,
+                            "Skipping unreadable HikariCP pool {0}: {1}",
+                            poolName,
+                            e.getMessage());
                 }
             }
 
             return pools;
         } catch (Exception e) {
-            throw new IOException("Failed to query HikariCP MBeans. Ensure spring.datasource.hikari.register-mbeans=true is set.", e);
+            throw new IOException(
+                    "Failed to query HikariCP MBeans. Ensure spring.datasource.hikari.register-mbeans=true is set.",
+                    e);
         }
     }
 
@@ -84,42 +79,61 @@ public class HikariMXBeanClient implements HikariDiagnosticPort {
                 saturation = (double) active / maximumPoolSize;
             }
 
-            HikariPoolHealth health = analyzeHealth(poolNameValue, active, waiting, maximumPoolSize, saturation);
+            HikariPoolHealth health =
+                    analyzeHealth(poolNameValue, active, waiting, maximumPoolSize, saturation);
 
             return new HikariPoolStatistics(
-                poolNameValue,
-                active,
-                idle,
-                total,
-                waiting,
-                maximumPoolSize,
-                saturation,
-                health
-            );
+                    poolNameValue,
+                    active,
+                    idle,
+                    total,
+                    waiting,
+                    maximumPoolSize,
+                    saturation,
+                    health);
         } catch (Exception e) {
             throw new IOException("Failed to read HikariCP pool: " + poolName, e);
         }
     }
 
-    private HikariPoolHealth analyzeHealth(String poolName, int active, int waiting, int max, double saturation) {
+    private HikariPoolHealth analyzeHealth(
+            String poolName, int active, int waiting, int max, double saturation) {
         String status;
         String recommendation;
 
         if (waiting > 0 && active == max && max > 0) {
             status = "EXHAUSTED";
-            recommendation = "CRITICAL: True Connection Starvation detected. Pool is fully active and " + waiting + " thread(s) are blocked. Investigate connection leaks or increase maximumPoolSize.";
+            recommendation =
+                    "CRITICAL: True Connection Starvation detected. Pool is fully active and "
+                            + waiting
+                            + " thread(s) are blocked. Investigate connection leaks or increase maximumPoolSize.";
         } else if (waiting > 0 && max > 0 && active < max) {
             status = "DEGRADED";
-            recommendation = "WARNING: Threads awaiting connection (" + waiting + "), but pool is not fully active (" + active + "/" + max + "). This indicates CPU starvation, OS scheduling issues, or a severe GC pause (Clock Leap) rather than DB pool exhaustion.";
+            recommendation =
+                    "WARNING: Threads awaiting connection ("
+                            + waiting
+                            + "), but pool is not fully active ("
+                            + active
+                            + "/"
+                            + max
+                            + "). This indicates CPU starvation, OS scheduling issues, or a severe GC pause (Clock Leap) rather than DB pool exhaustion.";
         } else if (waiting > 0 && max <= 0) {
             status = "DEGRADED";
-            recommendation = "WARNING: " + waiting + " thread(s) awaiting connection and maximumPoolSize unknown. Cannot determine pool saturation — check connection health and pool configuration.";
+            recommendation =
+                    "WARNING: "
+                            + waiting
+                            + " thread(s) awaiting connection and maximumPoolSize unknown. Cannot determine pool saturation — check connection health and pool configuration.";
         } else if (saturation >= 0.90) {
             status = "DEGRADED";
-            recommendation = "WARNING: Pool saturation is at " + Math.round(saturation * 100) + "%. High risk of starvation during traffic spikes.";
+            recommendation =
+                    "WARNING: Pool saturation is at "
+                            + Math.round(saturation * 100)
+                            + "%. High risk of starvation during traffic spikes.";
         } else {
             status = "HEALTHY";
-            recommendation = "Pool is healthy. Saturation: " + (saturation >= 0 ? Math.round(saturation * 100) + "%" : "Unknown");
+            recommendation =
+                    "Pool is healthy. Saturation: "
+                            + (saturation >= 0 ? Math.round(saturation * 100) + "%" : "Unknown");
         }
 
         return new HikariPoolHealth(poolName, status, recommendation);
@@ -127,7 +141,8 @@ public class HikariMXBeanClient implements HikariDiagnosticPort {
 
     int getMaximumPoolSize(ObjectName poolObjectName) throws IOException {
         try {
-            String configNameStr = poolObjectName.toString().replace("type=Pool", "type=PoolConfig");
+            String configNameStr =
+                    poolObjectName.toString().replace("type=Pool", "type=PoolConfig");
             ObjectName configName = new ObjectName(configNameStr);
             return (Integer) mbsc.getAttribute(configName, "MaximumPoolSize");
         } catch (Exception e) {
@@ -151,12 +166,11 @@ public class HikariMXBeanClient implements HikariDiagnosticPort {
         if (typeValue != null && typeValue.startsWith("Pool (") && typeValue.endsWith(")")) {
             return typeValue.substring(6, typeValue.length() - 1);
         }
-        
+
         // Fallback
         return objectName.toString();
     }
 
     @Override
-    public void close() throws Exception {
-    }
+    public void close() throws Exception {}
 }

@@ -1,41 +1,38 @@
 package dev.jvmmcp;
 
-import picocli.CommandLine;
-import picocli.CommandLine.Command;
-import picocli.CommandLine.IVersionProvider;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
 import java.util.concurrent.Callable;
+import picocli.CommandLine;
+import picocli.CommandLine.Command;
+import picocli.CommandLine.IVersionProvider;
 
 @Command(
-    name = "jvm-mcp",
-    mixinStandardHelpOptions = true,
-    versionProvider = JvmMcp.VersionProvider.class,
-    description = "Live JVM inspection via Model Context Protocol without target dependencies.",
-    subcommands = { 
-        ServeCommand.class, 
-        ListCommand.class, 
-        MemoryCommand.class, 
-        ThreadsCommand.class,
-        BeansCommand.class,
-        PgCommand.class,
-        ActuatorCommand.class,
-        DoctorCommand.class
-    }
-)
+        name = "jvm-mcp",
+        mixinStandardHelpOptions = true,
+        versionProvider = JvmMcp.VersionProvider.class,
+        description = "Live JVM inspection via Model Context Protocol without target dependencies.",
+        subcommands = {
+            ServeCommand.class,
+            ListCommand.class,
+            MemoryCommand.class,
+            ThreadsCommand.class,
+            BeansCommand.class,
+            PgCommand.class,
+            ActuatorCommand.class,
+            DoctorCommand.class
+        })
 public class JvmMcp implements Callable<Integer> {
 
     public static class VersionProvider implements IVersionProvider {
         @Override
         public String[] getVersion() {
-            return new String[] { JvmMcp.getVersion() };
+            return new String[] {JvmMcp.getVersion()};
         }
     }
 
-    public static class ManifestVersionProvider extends VersionProvider {
-    }
+    public static class ManifestVersionProvider extends VersionProvider {}
 
     public static String getVersion() {
         Package pkg = JvmMcp.class.getPackage();
@@ -52,7 +49,9 @@ public class JvmMcp implements Callable<Integer> {
                 Properties props = new Properties();
                 props.load(resourceStream);
                 String propVersion = props.getProperty("version");
-                if (propVersion != null && !propVersion.isBlank() && !propVersion.startsWith("${")) {
+                if (propVersion != null
+                        && !propVersion.isBlank()
+                        && !propVersion.startsWith("${")) {
                     return propVersion.trim();
                 }
             } catch (IOException ignored) {

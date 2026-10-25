@@ -1,19 +1,18 @@
 package dev.jvmmcp;
 
-import dev.jvmmcp.core.attach.JvmAttachService;
-import dev.jvmmcp.core.model.Framework;
-import dev.jvmmcp.core.model.JvmProcess;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import picocli.CommandLine;
-
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+
+import dev.jvmmcp.core.attach.JvmAttachService;
+import dev.jvmmcp.core.model.Framework;
+import dev.jvmmcp.core.model.JvmProcess;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.util.List;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import picocli.CommandLine;
 
 class DoctorCommandTest {
 
@@ -69,7 +68,9 @@ class DoctorCommandTest {
             int exitCode = doctor.call();
 
             assertThat(exitCode).isZero();
-            assertThat(out.toString()).contains("Note: No Java processes found. Ensure your target applications are running as the same OS user.");
+            assertThat(out.toString())
+                    .contains(
+                            "Note: No Java processes found. Ensure your target applications are running as the same OS user.");
         } finally {
             System.setOut(originalOut);
         }
@@ -79,9 +80,11 @@ class DoctorCommandTest {
     @DisplayName("doctor reports when JVM processes are found")
     void shouldReportJvmsFound() {
         JvmAttachService mockAttach = mock(JvmAttachService.class);
-        when(mockAttach.listJvms()).thenReturn(List.of(
-            new JvmProcess(101L, "App", "App", "21", Framework.PLAIN_JAVA, true)
-        ));
+        when(mockAttach.listJvms())
+                .thenReturn(
+                        List.of(
+                                new JvmProcess(
+                                        101L, "App", "App", "21", Framework.PLAIN_JAVA, true)));
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         PrintStream originalOut = System.out;
@@ -91,7 +94,11 @@ class DoctorCommandTest {
             int exitCode = doctor.call();
 
             assertThat(exitCode).isZero();
-            assertThat(out.toString()).contains("[OK] Found 1 local Java processes accessible to user '" + System.getProperty("user.name") + "'.");
+            assertThat(out.toString())
+                    .contains(
+                            "[OK] Found 1 local Java processes accessible to user '"
+                                    + System.getProperty("user.name")
+                                    + "'.");
             assertThat(out.toString()).doesNotContain("Note: No Java processes found.");
         } finally {
             System.setOut(originalOut);
@@ -112,8 +119,11 @@ class DoctorCommandTest {
             int exitCode = doctor.call();
 
             assertThat(exitCode).isEqualTo(1);
-            assertThat(out.toString()).contains("[ERROR] Attach API failed to initialize: Access denied");
-            assertThat(out.toString()).contains("Resolution: Ensure you are running this CLI as the same user as the target JVM.");
+            assertThat(out.toString())
+                    .contains("[ERROR] Attach API failed to initialize: Access denied");
+            assertThat(out.toString())
+                    .contains(
+                            "Resolution: Ensure you are running this CLI as the same user as the target JVM.");
         } finally {
             System.setOut(originalOut);
         }
@@ -126,7 +136,8 @@ class DoctorCommandTest {
         PrintStream ps = new PrintStream(out);
 
         DoctorCommand.checkJvmVendor("Eclipse Adoptium", "OpenJDK 64-Bit Server VM", ps);
-        assertThat(out.toString()).contains("[OK] HotSpot-compatible JVM detected (Eclipse Adoptium)");
+        assertThat(out.toString())
+                .contains("[OK] HotSpot-compatible JVM detected (Eclipse Adoptium)");
 
         out.reset();
         DoctorCommand.checkJvmVendor("IBM Corporation", "Eclipse OpenJ9 VM", ps);
@@ -156,19 +167,20 @@ class DoctorCommandTest {
         out.reset();
         assertThat(DoctorCommand.checkJavaVersion(Runtime.Version.parse("21"), ps)).isTrue();
         assertThat(out.toString())
-            .contains("[OK] Java version 21 meets the minimum requirement (Java 21+).")
-            .doesNotContain("[ERROR]");
+                .contains("[OK] Java version 21 meets the minimum requirement (Java 21+).")
+                .doesNotContain("[ERROR]");
 
         // Newer than the minimum
         out.reset();
         assertThat(DoctorCommand.checkJavaVersion(Runtime.Version.parse("23"), ps)).isTrue();
         assertThat(out.toString())
-            .contains("[OK] Java version 23 meets the minimum requirement (Java 21+).");
+                .contains("[OK] Java version 23 meets the minimum requirement (Java 21+).");
     }
 
     @Test
     @DisplayName("checkContainerEnvironment identifies container indicator files")
-    void shouldCheckContainerEnvironment(@org.junit.jupiter.api.io.TempDir java.nio.file.Path tempDir) throws Exception {
+    void shouldCheckContainerEnvironment(
+            @org.junit.jupiter.api.io.TempDir java.nio.file.Path tempDir) throws Exception {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         PrintStream ps = new PrintStream(out);
 
@@ -187,7 +199,8 @@ class DoctorCommandTest {
 
     @Test
     @DisplayName("checkLinuxPtraceScope reports ptrace levels accurately")
-    void shouldCheckLinuxPtraceScope(@org.junit.jupiter.api.io.TempDir java.nio.file.Path tempDir) throws Exception {
+    void shouldCheckLinuxPtraceScope(@org.junit.jupiter.api.io.TempDir java.nio.file.Path tempDir)
+            throws Exception {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         PrintStream ps = new PrintStream(out);
 
@@ -200,7 +213,9 @@ class DoctorCommandTest {
         // Scope 0
         java.nio.file.Files.writeString(ptrace, "0\n");
         DoctorCommand.checkLinuxPtraceScope(ptrace, ps);
-        assertThat(out.toString()).contains("Linux yama/ptrace_scope is 0 (classic ptrace permissions; unrestricted same-user attach)");
+        assertThat(out.toString())
+                .contains(
+                        "Linux yama/ptrace_scope is 0 (classic ptrace permissions; unrestricted same-user attach)");
 
         // Scope 1
         out.reset();

@@ -9,9 +9,4 @@ package dev.jvmmcp.core.model;
  * @param memoryUsedBytes memory used by buffers in bytes
  */
 public record BufferPoolInfo(
-    String name,
-    long count,
-    long totalCapacityBytes,
-    long memoryUsedBytes
-) {
-}
+        String name, long count, long totalCapacityBytes, long memoryUsedBytes) {}

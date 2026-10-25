@@ -7,17 +7,17 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
 /**
- * A streaming bounded line reader that reads UTF-8 lines from an {@link InputStream}.
- * Reads into a fixed-size internal buffer, counts accumulated line bytes against {@code maxBytes},
- * and if an oversized line is encountered, drains the remaining line from the stream up to the
- * next newline or EOF, bounded by {@code maxDrainBytes}.
- * <p>
- * If a newline is encountered within the {@code maxDrainBytes} limit, {@link LineTooLargeException}
- * is thrown so that subsequent lines can be read cleanly. If the discard limit is exceeded without
- * finding a newline, an {@link IOException} is thrown and the reader enters an unrecoverable state,
- * preventing subsequent processing of an unaligned stream.
- * <p>
- * Note: A byte discard limit prevents memory exhaustion and unbounded draining on continuous
+ * A streaming bounded line reader that reads UTF-8 lines from an {@link InputStream}. Reads into a
+ * fixed-size internal buffer, counts accumulated line bytes against {@code maxBytes}, and if an
+ * oversized line is encountered, drains the remaining line from the stream up to the next newline
+ * or EOF, bounded by {@code maxDrainBytes}.
+ *
+ * <p>If a newline is encountered within the {@code maxDrainBytes} limit, {@link
+ * LineTooLargeException} is thrown so that subsequent lines can be read cleanly. If the discard
+ * limit is exceeded without finding a newline, an {@link IOException} is thrown and the reader
+ * enters an unrecoverable state, preventing subsequent processing of an unaligned stream.
+ *
+ * <p>Note: A byte discard limit prevents memory exhaustion and unbounded draining on continuous
  * newline-free streams, but does not by itself prevent slow-client (Slowloris) attacks;
  * transport-level read timeouts and deadlines are separate concerns.
  */
@@ -64,12 +64,12 @@ public class BoundedLineReader implements Closeable {
     /**
      * Reads a line of text terminated by '\n' or '\r\n', or reaching EOF.
      *
-     * @return the line as a UTF-8 String without line-termination characters,
-     *         or {@code null} if the end of the stream has been reached without reading any bytes.
+     * @return the line as a UTF-8 String without line-termination characters, or {@code null} if
+     *     the end of the stream has been reached without reading any bytes.
      * @throws LineTooLargeException if the line exceeds {@code maxBytes} and was successfully
-     *                               drained up to the next newline or EOF within {@code maxDrainBytes}.
-     * @throws IOException           if an I/O error occurs, if the stream is closed or unrecoverable,
-     *                               or if draining exceeds {@code maxDrainBytes} without finding a newline.
+     *     drained up to the next newline or EOF within {@code maxDrainBytes}.
+     * @throws IOException if an I/O error occurs, if the stream is closed or unrecoverable, or if
+     *     draining exceeds {@code maxDrainBytes} without finding a newline.
      */
     public String readLine() throws IOException {
         if (closed) {
@@ -104,9 +104,8 @@ public class BoundedLineReader implements Closeable {
                 if (accumulatedBytes > maxBytes) {
                     drainOversizedLine();
                     throw new LineTooLargeException(
-                        "Request line exceeds maximum limit of " + maxBytes + " bytes",
-                        maxBytes
-                    );
+                            "Request line exceeds maximum limit of " + maxBytes + " bytes",
+                            maxBytes);
                 }
 
                 out.write(b);
@@ -125,14 +124,16 @@ public class BoundedLineReader implements Closeable {
 
     /**
      * Discards up to {@code maxDrainBytes} bytes from the stream until the next '\n' or EOF.
-     * <p>
-     * Boundary semantics:
+     *
+     * <p>Boundary semantics:
+     *
      * <ul>
-     *   <li>A newline occurring at any position up to and including {@code maxDrainBytes}
-     *       is accepted, positioning the stream for subsequent reads.</li>
-     *   <li>Reaching EOF while {@code drained <= maxDrainBytes} is accepted.</li>
-     *   <li>If draining requires more than {@code maxDrainBytes} bytes without encountering
-     *       a newline, the reader marks the stream as unrecoverable and throws an {@link IOException}.</li>
+     *   <li>A newline occurring at any position up to and including {@code maxDrainBytes} is
+     *       accepted, positioning the stream for subsequent reads.
+     *   <li>Reaching EOF while {@code drained <= maxDrainBytes} is accepted.
+     *   <li>If draining requires more than {@code maxDrainBytes} bytes without encountering a
+     *       newline, the reader marks the stream as unrecoverable and throws an {@link
+     *       IOException}.
      * </ul>
      */
     private void drainOversizedLine() throws IOException {
@@ -150,8 +151,9 @@ public class BoundedLineReader implements Closeable {
                 if (drained > maxDrainBytes) {
                     unrecoverable = true;
                     throw new IOException(
-                        "Request line exceeded maximum drain limit of " + maxDrainBytes + " bytes without newline"
-                    );
+                            "Request line exceeded maximum drain limit of "
+                                    + maxDrainBytes
+                                    + " bytes without newline");
                 }
                 if (buffer[bufferPos++] == '\n') {
                     return;

@@ -2,17 +2,14 @@ package dev.jvmmcp.core.jmx;
 
 import dev.jvmmcp.core.model.*;
 import dev.jvmmcp.core.port.MemoryDiagnosticPort;
-
-import javax.management.MBeanServerConnection;
 import java.io.IOException;
 import java.lang.System.Logger;
 import java.lang.management.*;
 import java.util.ArrayList;
 import java.util.List;
+import javax.management.MBeanServerConnection;
 
-/**
- * Diagnostic client querying JVM Memory and Garbage Collector MXBeans via JMX.
- */
+/** Diagnostic client querying JVM Memory and Garbage Collector MXBeans via JMX. */
 public class MemoryMXBeanClient implements MemoryDiagnosticPort {
 
     private static final Logger LOGGER = System.getLogger(MemoryMXBeanClient.class.getName());
@@ -27,17 +24,13 @@ public class MemoryMXBeanClient implements MemoryDiagnosticPort {
     }
 
     public HeapSummary getHeapSummary(long pid) throws IOException {
-        MemoryMXBean memoryMXBean = ManagementFactory.newPlatformMXBeanProxy(
-            mbsc,
-            ManagementFactory.MEMORY_MXBEAN_NAME,
-            MemoryMXBean.class
-        );
+        MemoryMXBean memoryMXBean =
+                ManagementFactory.newPlatformMXBeanProxy(
+                        mbsc, ManagementFactory.MEMORY_MXBEAN_NAME, MemoryMXBean.class);
 
-        RuntimeMXBean runtimeMXBean = ManagementFactory.newPlatformMXBeanProxy(
-            mbsc,
-            ManagementFactory.RUNTIME_MXBEAN_NAME,
-            RuntimeMXBean.class
-        );
+        RuntimeMXBean runtimeMXBean =
+                ManagementFactory.newPlatformMXBeanProxy(
+                        mbsc, ManagementFactory.RUNTIME_MXBEAN_NAME, RuntimeMXBean.class);
 
         long uptimeMs = runtimeMXBean.getUptime();
 
@@ -51,21 +44,21 @@ public class MemoryMXBeanClient implements MemoryDiagnosticPort {
         MemoryPressure pressure = evaluatePressure(heapUsage, pools, gcs, uptimeMs);
         ClassLoadingInfo classLoading = getClassLoadingInfo();
 
-        return new HeapSummary(pid, heapUsage, nonHeapUsage, pools, gcs, pressure, classLoading, bufferPools);
+        return new HeapSummary(
+                pid, heapUsage, nonHeapUsage, pools, gcs, pressure, classLoading, bufferPools);
     }
 
     public ClassLoadingInfo getClassLoadingInfo() {
         try {
-            ClassLoadingMXBean classLoadingMXBean = ManagementFactory.newPlatformMXBeanProxy(
-                mbsc,
-                ManagementFactory.CLASS_LOADING_MXBEAN_NAME,
-                ClassLoadingMXBean.class
-            );
+            ClassLoadingMXBean classLoadingMXBean =
+                    ManagementFactory.newPlatformMXBeanProxy(
+                            mbsc,
+                            ManagementFactory.CLASS_LOADING_MXBEAN_NAME,
+                            ClassLoadingMXBean.class);
             return new ClassLoadingInfo(
-                classLoadingMXBean.getLoadedClassCount(),
-                classLoadingMXBean.getTotalLoadedClassCount(),
-                classLoadingMXBean.getUnloadedClassCount()
-            );
+                    classLoadingMXBean.getLoadedClassCount(),
+                    classLoadingMXBean.getTotalLoadedClassCount(),
+                    classLoadingMXBean.getUnloadedClassCount());
         } catch (Exception e) {
             LOGGER.log(Logger.Level.DEBUG, "Could not query ClassLoadingMXBean", e);
             return null;
@@ -74,17 +67,13 @@ public class MemoryMXBeanClient implements MemoryDiagnosticPort {
 
     public List<MemoryPoolInfo> getMemoryPools() throws IOException {
         List<MemoryPoolInfo> poolInfos = new ArrayList<>();
-        List<MemoryPoolMXBean> poolBeans = ManagementFactory.getPlatformMXBeans(mbsc, MemoryPoolMXBean.class);
+        List<MemoryPoolMXBean> poolBeans =
+                ManagementFactory.getPlatformMXBeans(mbsc, MemoryPoolMXBean.class);
 
         for (MemoryPoolMXBean bean : poolBeans) {
             MemoryUsageInfo usage = MemoryUsageInfo.from(bean.getUsage());
             MemoryUsageInfo peak = MemoryUsageInfo.from(bean.getPeakUsage());
-            poolInfos.add(new MemoryPoolInfo(
-                bean.getName(),
-                bean.getType().name(),
-                usage,
-                peak
-            ));
+            poolInfos.add(new MemoryPoolInfo(bean.getName(), bean.getType().name(), usage, peak));
         }
 
         return poolInfos;
@@ -92,15 +81,16 @@ public class MemoryMXBeanClient implements MemoryDiagnosticPort {
 
     public List<BufferPoolInfo> getBufferPools() throws IOException {
         List<BufferPoolInfo> bufferPoolInfos = new ArrayList<>();
-        List<BufferPoolMXBean> bufferPoolBeans = ManagementFactory.getPlatformMXBeans(mbsc, BufferPoolMXBean.class);
+        List<BufferPoolMXBean> bufferPoolBeans =
+                ManagementFactory.getPlatformMXBeans(mbsc, BufferPoolMXBean.class);
 
         for (BufferPoolMXBean bean : bufferPoolBeans) {
-            bufferPoolInfos.add(new BufferPoolInfo(
-                bean.getName(),
-                bean.getCount(),
-                bean.getTotalCapacity(),
-                bean.getMemoryUsed()
-            ));
+            bufferPoolInfos.add(
+                    new BufferPoolInfo(
+                            bean.getName(),
+                            bean.getCount(),
+                            bean.getTotalCapacity(),
+                            bean.getMemoryUsed()));
         }
 
         return bufferPoolInfos;
@@ -108,24 +98,33 @@ public class MemoryMXBeanClient implements MemoryDiagnosticPort {
 
     public List<GarbageCollectorInfo> getGarbageCollectors() throws IOException {
         List<GarbageCollectorInfo> gcInfos = new ArrayList<>();
-        List<GarbageCollectorMXBean> gcBeans = ManagementFactory.getPlatformMXBeans(mbsc, GarbageCollectorMXBean.class);
+        List<GarbageCollectorMXBean> gcBeans =
+                ManagementFactory.getPlatformMXBeans(mbsc, GarbageCollectorMXBean.class);
 
         for (GarbageCollectorMXBean bean : gcBeans) {
-            gcInfos.add(new GarbageCollectorInfo(
-                bean.getName(),
-                bean.getCollectionCount(),
-                bean.getCollectionTime(),
-                bean.getMemoryPoolNames()
-            ));
+            gcInfos.add(
+                    new GarbageCollectorInfo(
+                            bean.getName(),
+                            bean.getCollectionCount(),
+                            bean.getCollectionTime(),
+                            bean.getMemoryPoolNames()));
         }
 
         return gcInfos;
     }
 
-    public MemoryPressure evaluatePressure(MemoryUsageInfo heapUsage, List<MemoryPoolInfo> pools, List<GarbageCollectorInfo> gcs, long uptimeMs) {
-        double heapRatio = heapUsage.maxBytes() > 0 
-            ? (double) heapUsage.usedBytes() / (double) heapUsage.maxBytes()
-            : (heapUsage.committedBytes() > 0 ? (double) heapUsage.usedBytes() / (double) heapUsage.committedBytes() : 0.0);
+    public MemoryPressure evaluatePressure(
+            MemoryUsageInfo heapUsage,
+            List<MemoryPoolInfo> pools,
+            List<GarbageCollectorInfo> gcs,
+            long uptimeMs) {
+        double heapRatio =
+                heapUsage.maxBytes() > 0
+                        ? (double) heapUsage.usedBytes() / (double) heapUsage.maxBytes()
+                        : (heapUsage.committedBytes() > 0
+                                ? (double) heapUsage.usedBytes()
+                                        / (double) heapUsage.committedBytes()
+                                : 0.0);
 
         double maxMetaspaceRatio = 0.0;
         for (MemoryPoolInfo pool : pools) {
@@ -153,28 +152,43 @@ public class MemoryMXBeanClient implements MemoryDiagnosticPort {
 
         if (gcOverhead >= 0.20) {
             level = MemoryPressureLevel.CRITICAL;
-            recommendation = "CRITICAL: GC Lifetime Overhead is " + Math.round(gcOverhead * 100) + "%. The JVM is spending excessive time in Garbage Collection (Thrashing), severely degrading throughput. Inspect for memory leaks.";
+            recommendation =
+                    "CRITICAL: GC Lifetime Overhead is "
+                            + Math.round(gcOverhead * 100)
+                            + "%. The JVM is spending excessive time in Garbage Collection (Thrashing), severely degrading throughput. Inspect for memory leaks.";
         } else if (maxMemoryRatio >= 0.95) {
             level = MemoryPressureLevel.CRITICAL;
             if (maxMetaspaceRatio >= 0.95) {
-                recommendation = "CRITICAL: Metaspace/Class Space utilization exceeds 95%. Immediate risk of java.lang.OutOfMemoryError: Metaspace. Recommend checking for ClassLoader leaks or increasing -XX:MaxMetaspaceSize.";
+                recommendation =
+                        "CRITICAL: Metaspace/Class Space utilization exceeds 95%. Immediate risk of java.lang.OutOfMemoryError: Metaspace. Recommend checking for ClassLoader leaks or increasing -XX:MaxMetaspaceSize.";
             } else {
-                recommendation = "CRITICAL: Heap utilization exceeds 95%. Immediate risk of java.lang.OutOfMemoryError: Java heap space. Recommend inspecting heap histogram for memory leaks or increasing -Xmx.";
+                recommendation =
+                        "CRITICAL: Heap utilization exceeds 95%. Immediate risk of java.lang.OutOfMemoryError: Java heap space. Recommend inspecting heap histogram for memory leaks or increasing -Xmx.";
             }
         } else if (maxMemoryRatio >= 0.85 || gcOverhead >= 0.10) {
             level = MemoryPressureLevel.ELEVATED;
             if (gcOverhead >= 0.10) {
-                recommendation = "ELEVATED: GC Overhead is " + Math.round(gcOverhead * 100) + "%. Frequent GC cycles are introducing latency spikes. Monitor object allocation rates.";
+                recommendation =
+                        "ELEVATED: GC Overhead is "
+                                + Math.round(gcOverhead * 100)
+                                + "%. Frequent GC cycles are introducing latency spikes. Monitor object allocation rates.";
             } else {
                 recommendation = "ELEVATED: Memory utilization exceeds 85%. Monitor memory pools.";
             }
         } else {
             level = MemoryPressureLevel.NORMAL;
-            recommendation = "NORMAL: Memory consumption is healthy (< 85% utilization). Garbage collection pauses are within normal thresholds.";
+            recommendation =
+                    "NORMAL: Memory consumption is healthy (< 85% utilization). Garbage collection pauses are within normal thresholds.";
         }
 
-        // the level follows the fuller of heap and metaspace, but the ratio reported is the heap's own
-        return new MemoryPressure(level, Math.round(heapRatio * 100.0) / 100.0, totalGcTime, totalGcCount, recommendation);
+        // the level follows the fuller of heap and metaspace, but the ratio reported is the heap's
+        // own
+        return new MemoryPressure(
+                level,
+                Math.round(heapRatio * 100.0) / 100.0,
+                totalGcTime,
+                totalGcCount,
+                recommendation);
     }
 
     @Override

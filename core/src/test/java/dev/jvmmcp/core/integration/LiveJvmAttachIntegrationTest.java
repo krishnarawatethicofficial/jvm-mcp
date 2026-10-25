@@ -1,5 +1,7 @@
 package dev.jvmmcp.core.integration;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import dev.jvmmcp.core.attach.AttachResult;
 import dev.jvmmcp.core.attach.JvmAttachService;
 import dev.jvmmcp.core.jmx.JmxConnectionManager;
@@ -7,14 +9,11 @@ import dev.jvmmcp.core.jmx.MemoryMXBeanClient;
 import dev.jvmmcp.core.jmx.ThreadMXBeanClient;
 import dev.jvmmcp.core.model.HeapSummary;
 import dev.jvmmcp.core.model.ThreadSummary;
-import org.junit.jupiter.api.*;
-
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.nio.file.Paths;
 import java.util.concurrent.TimeUnit;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.*;
 
 @DisplayName("Live JVM Attach & Diagnostics Integration")
 class LiveJvmAttachIntegrationTest {
@@ -32,12 +31,15 @@ class LiveJvmAttachIntegrationTest {
         String javaBin = Paths.get(javaHome, "bin", "java").toString();
         String classpath = System.getProperty("java.class.path");
 
-        ProcessBuilder pb = new ProcessBuilder(javaBin, "-cp", classpath, "dev.jvmmcp.core.integration.DummyTarget");
+        ProcessBuilder pb =
+                new ProcessBuilder(
+                        javaBin, "-cp", classpath, "dev.jvmmcp.core.integration.DummyTarget");
         targetProcess = pb.start();
         targetPid = targetProcess.pid();
 
         // Wait for "READY" signal
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(targetProcess.getInputStream()))) {
+        try (BufferedReader reader =
+                new BufferedReader(new InputStreamReader(targetProcess.getInputStream()))) {
             String line = reader.readLine();
             assertThat(line).isEqualTo("READY");
         }
@@ -64,13 +66,16 @@ class LiveJvmAttachIntegrationTest {
             assertThat(result.virtualMachine()).isPresent();
 
             // 2. Connect JMX
-            try (JmxConnectionManager jmx = JmxConnectionManager.connect(result.virtualMachine().get(), targetPid);
-                 MemoryMXBeanClient memoryClient = new MemoryMXBeanClient(jmx.getMBeanServerConnection());
-                 ThreadMXBeanClient threadClient = new ThreadMXBeanClient(jmx.getMBeanServerConnection())) {
-                
+            try (JmxConnectionManager jmx =
+                            JmxConnectionManager.connect(result.virtualMachine().get(), targetPid);
+                    MemoryMXBeanClient memoryClient =
+                            new MemoryMXBeanClient(jmx.getMBeanServerConnection());
+                    ThreadMXBeanClient threadClient =
+                            new ThreadMXBeanClient(jmx.getMBeanServerConnection())) {
+
                 // 3. Read Memory (using the Port implementation)
                 HeapSummary heap = memoryClient.getHeapSummary(targetPid);
-                
+
                 assertThat(heap.heap().maxMb()).isGreaterThan(0);
                 assertThat(heap.heap().usedMb()).isGreaterThan(0);
                 assertThat(heap.pools()).isNotEmpty();
