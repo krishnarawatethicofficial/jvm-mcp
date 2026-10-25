@@ -64,6 +64,7 @@ public class ThreadMXBeanClient implements ThreadDiagnosticPort {
 
             for (ThreadInfo info : chunkInfos) {
                 if (info == null) continue;
+
                 switch (info.getThreadState()) {
                     case RUNNABLE -> runnable++;
                     case BLOCKED -> blocked++;
@@ -195,57 +196,50 @@ public class ThreadMXBeanClient implements ThreadDiagnosticPort {
                 ManagementFactory.newPlatformMXBeanProxy(
                         mbsc, ManagementFactory.THREAD_MXBEAN_NAME, ThreadMXBean.class);
 
-        boolean contentionMonitored = false;
-        boolean wasEnabled = false;
-        if (threadMXBean.isThreadContentionMonitoringSupported()) {
-            wasEnabled = threadMXBean.isThreadContentionMonitoringEnabled();
-            if (!wasEnabled) threadMXBean.setThreadContentionMonitoringEnabled(true);
-            contentionMonitored = true;
+        boolean contentionMonitored = threadMXBean.isThreadContentionMonitoringSupported();
+
+        if (contentionMonitored && !threadMXBean.isThreadContentionMonitoringEnabled()) {
+            threadMXBean.setThreadContentionMonitoringEnabled(true);
         }
 
-        try {
-            ThreadInfo[] threadInfos = threadMXBean.dumpAllThreads(true, true);
-            if (threadInfos == null) {
-                return List.of();
-            }
-
-            List<BlockedThreadDetail> blockedList = new ArrayList<>();
-
-            for (ThreadInfo info : threadInfos) {
-                if (info == null || info.getThreadState() != Thread.State.BLOCKED) {
-                    continue;
-                }
-
-                // Without contention monitoring, getBlockedTime() always reports -1
-                long blockedTime = info.getBlockedTime();
-                Long blockedTimeMs = contentionMonitored && blockedTime >= 0 ? blockedTime : null;
-                if (thresholdMs > 0 && blockedTimeMs != null && blockedTimeMs < thresholdMs) {
-                    continue;
-                }
-
-                List<ThreadStackFrame> stackFrames =
-                        Arrays.stream(info.getStackTrace()).map(ThreadStackFrame::from).toList();
-
-                Long ownerId = info.getLockOwnerId() >= 0 ? info.getLockOwnerId() : null;
-
-                blockedList.add(
-                        new BlockedThreadDetail(
-                                info.getThreadId(),
-                                info.getThreadName(),
-                                blockedTimeMs,
-                                info.getBlockedCount(),
-                                info.getLockName(),
-                                ownerId,
-                                info.getLockOwnerName(),
-                                stackFrames));
-            }
-
-            return blockedList;
-        } finally {
-            if (contentionMonitored && !wasEnabled) {
-                threadMXBean.setThreadContentionMonitoringEnabled(false);
-            }
+        ThreadInfo[] threadInfos = threadMXBean.dumpAllThreads(true, true);
+        if (threadInfos == null) {
+            return List.of();
         }
+
+        List<BlockedThreadDetail> blockedList = new ArrayList<>();
+
+        for (ThreadInfo info : threadInfos) {
+            if (info == null || info.getThreadState() != Thread.State.BLOCKED) {
+                continue;
+            }
+
+            // Without contention monitoring, getBlockedTime() always reports -1
+            long blockedTime = info.getBlockedTime();
+            Long blockedTimeMs = contentionMonitored && blockedTime >= 0 ? blockedTime : null;
+
+            if (thresholdMs > 0 && blockedTimeMs != null && blockedTimeMs < thresholdMs) {
+                continue;
+            }
+
+            List<ThreadStackFrame> stackFrames =
+                    Arrays.stream(info.getStackTrace()).map(ThreadStackFrame::from).toList();
+
+            Long ownerId = info.getLockOwnerId() >= 0 ? info.getLockOwnerId() : null;
+
+            blockedList.add(
+                    new BlockedThreadDetail(
+                            info.getThreadId(),
+                            info.getThreadName(),
+                            blockedTimeMs,
+                            info.getBlockedCount(),
+                            info.getLockName(),
+                            ownerId,
+                            info.getLockOwnerName(),
+                            stackFrames));
+        }
+
+        return blockedList;
     }
 
     @Override

@@ -3,6 +3,14 @@ package dev.jvmmcp.core.util;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.io.File;
+import java.net.URI;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.Period;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -10,6 +18,7 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
+import java.util.UUID;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,6 +29,84 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class SimpleJsonTest {
+
+    @ParameterizedTest
+    @MethodSource("scalarValues")
+    @DisplayName("toJson should serialize standard scalar values as escaped strings")
+    void shouldSerializeScalarValues(Object value, String expected) {
+        assertThat(SimpleJson.toJson(value)).isEqualTo(expected);
+    }
+
+    static Stream<Arguments> scalarValues() {
+        String separator = File.separator.equals("\\") ? "\\\\" : "/";
+        return Stream.of(
+                Arguments.of(Path.of("dump.hprof"), "\"dump.hprof\""),
+                Arguments.of(Path.of("logs", "dump.hprof"), "\"logs" + separator + "dump.hprof\""),
+                Arguments.of(Path.of(""), "\"\""),
+                Arguments.of(
+                        Path.of(".").toAbsolutePath().getRoot(),
+                        "\""
+                                + Path.of(".")
+                                        .toAbsolutePath()
+                                        .getRoot()
+                                        .toString()
+                                        .replace("\\", "\\\\")
+                                + "\""),
+                Arguments.of(new File("logs", "dump.hprof"), "\"logs" + separator + "dump.hprof\""),
+                Arguments.of(
+                        URI.create("https://example.com/logs?name=dump"),
+                        "\"https://example.com/logs?name=dump\""),
+                Arguments.of(Instant.parse("2026-10-24T12:30:00Z"), "\"2026-10-24T12:30:00Z\""),
+                Arguments.of(Duration.ofSeconds(90), "\"PT1M30S\""),
+                Arguments.of(LocalDate.of(2026, 10, 24), "\"2026-10-24\""),
+                Arguments.of(Period.ofDays(2), "\"P2D\""),
+                Arguments.of(ZoneId.of("Europe/Paris"), "\"Europe/Paris\""),
+                Arguments.of(
+                        UUID.fromString("123e4567-e89b-12d3-a456-426614174000"),
+                        "\"123e4567-e89b-12d3-a456-426614174000\""),
+                Arguments.of(ScalarLabel.LOG, "\"log\\\"file\""),
+                Arguments.of('"', "\"\\\"\""),
+                Arguments.of('\\', "\"\\\\\""),
+                Arguments.of('\n', "\"\\n\""));
+    }
+
+    enum ScalarLabel {
+        LOG {
+            @Override
+            public String toString() {
+                return "log\"file";
+            }
+        }
+    }
+
+    public record PathRecord(Path path) {}
+
+    @Test
+    @DisplayName("toJson should preserve paths nested in records and containers")
+    void shouldSerializeNestedPaths() {
+        Path path = Path.of("dump.hprof");
+        Object value =
+                Map.of(
+                        "items",
+                        List.of(new PathRecord(path), new Object[] {path}, Optional.of(path)));
+
+        assertThat(SimpleJson.toJson(value))
+                .isEqualTo(
+                        "{\"items\":[{\"path\":\"dump.hprof\"},[\"dump.hprof\"],\"dump.hprof\"]}");
+    }
+
+    @ParameterizedTest
+    @MethodSource("scalarValues")
+    @DisplayName("toJson should not count scalar conversion toward the nesting limit")
+    void shouldPreserveSerializationDepthForScalars(Object scalar, String expected) {
+        Object value = scalar;
+        for (int i = 0; i < 100; i++) {
+            value = List.of(value);
+        }
+
+        assertThat(SimpleJson.toJson(value))
+                .isEqualTo("[".repeat(100) + expected + "]".repeat(100));
+    }
 
     @ParameterizedTest
     @MethodSource("optionalValues")

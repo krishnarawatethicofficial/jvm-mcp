@@ -363,7 +363,7 @@ class ThreadMXBeanClientTest {
 
     @Test
     @DisplayName(
-            "findBlockedThreads returns an empty list and restores monitoring when the dump is null")
+            "findBlockedThreads returns an empty list and keeps monitoring enabled when the dump is null")
     void shouldHandleNullBlockedThreadDump() throws Exception {
         ThreadMXBean mockBean = mock(ThreadMXBean.class);
         when(mockBean.isThreadContentionMonitoringSupported()).thenReturn(true);
@@ -382,7 +382,8 @@ class ThreadMXBeanClientTest {
 
             assertThat(threadClient.findBlockedThreads(100)).isEmpty();
             org.mockito.Mockito.verify(mockBean).setThreadContentionMonitoringEnabled(true);
-            org.mockito.Mockito.verify(mockBean).setThreadContentionMonitoringEnabled(false);
+            org.mockito.Mockito.verify(mockBean, org.mockito.Mockito.never())
+                    .setThreadContentionMonitoringEnabled(false);
         }
     }
 
@@ -466,7 +467,7 @@ class ThreadMXBeanClientTest {
         mxBean.setThreadContentionMonitoringEnabled(false);
         try {
             threadClient.findBlockedThreads(0);
-            assertThat(mxBean.isThreadContentionMonitoringEnabled()).isFalse();
+            assertThat(mxBean.isThreadContentionMonitoringEnabled()).isTrue();
         } finally {
             mxBean.setThreadContentionMonitoringEnabled(false);
         }

@@ -312,7 +312,7 @@ jvm-mcp pg --url "jdbc:postgresql://localhost:5432/mydb" --action slow-queries -
 ## Architectural Principles
 
 - **Virtual Threads & Thread-Safe Stdio:** Each incoming JSON-RPC request executes on a dedicated Java 21 Virtual Thread (`Executors.newVirtualThreadPerTaskExecutor()`). Outbound `stdout` writes are synchronized on a dedicated monitor lock to prevent frame interleaving.
-- **Dynamic JDK Management Agent:** JMX access is initialized dynamically via `VirtualMachine.startLocalManagementAgent()`, falling back to standard `$JAVA_HOME/lib/management-agent.jar`. No custom agent bytecode is injected into target processes.
+- **Dynamic JDK Management Agent:** JMX access first checks the target JVM's `com.sun.management.jmxremote.localConnectorAddress` agent property. If no address is available, it calls `VirtualMachine.startLocalManagementAgent()` and rechecks the property. If the address still cannot be resolved, the connection fails with a diagnostic. No `management-agent.jar` fallback is used.
 - **Zero Runtime Framework Overhead:** Operates with no heavy web or application frameworks (no Spring Boot runtime, Quarkus, Netty, Jackson, or reactive engines). It uses a lightweight custom JSON-RPC engine (`SimpleJson`), native JDK `HttpClient`, and Picocli for CLI execution, ensuring a cold start under 150ms.
 
 ---
@@ -323,7 +323,7 @@ jvm-mcp pg --url "jdbc:postgresql://localhost:5432/mydb" --action slow-queries -
 2. **Automatic Sensitive Data Redaction:** All diagnostic tool outputs and execution error messages returned over MCP are filtered through `SensitiveDataRedactor` to sanitize Bearer tokens, Basic credentials, passwords, API keys, embedded JDBC passwords, and JWTs.
 3. **Actuator SSRF & Path Traversal Mitigation:** Enforces strict `http`/`https` scheme validation, disables HTTP redirect following (`followRedirects: NEVER`) to eliminate cloud metadata/internal network pivoting, and rejects directory traversal in endpoints.
 4. **PostgreSQL JDBC Hardening & Schema Validation:** Enforces `jdbc:postgresql://` protocol, validates loopback resolution, strips unsafe driver properties (`socketFactory`, `sslrootcert`, `options`), and validates schema names against standard SQL identifier patterns to prevent SQL injection.
-5. **Resource Bounding & Execution Timeouts:** Heap histograms are bounded between 50 and 1,000 entries (capped at 100k lines), arguments are bounded via `ToolArgs`, and all tool invocations execute with an enforced 15-second virtual thread timeout.
+5. **Resource Bounding & Execution Timeouts:** Heap histograms accept limits from 1 to 1,000 entries (default 100; parsing capped at 100,000 lines), arguments are bounded via `ToolArgs`, and all tool invocations execute with an enforced 15-second virtual thread timeout.
 6. **ReDoS & Recursion Guards:** Sanitizes glob wildcards in `GlobMatcher` to prevent quadratic backtracking and bounds `SimpleJson` recursion depth to 100.
 
 ---

@@ -70,6 +70,8 @@ On Windows, use `mvnw.cmd` instead of `./mvnw`.
 
 ## 3. How to Implement a New MCP Tool
 
+Keep the documentation in sync with the implementation. When changing code constants, defaults, limits, or resource bounds, update the corresponding README descriptions in the same change.
+
 1. **Define Domain Models in `core/`:**
    Create an immutable `record` in `dev.jvmmcp.core.model` representing the structured diagnostic data.
 

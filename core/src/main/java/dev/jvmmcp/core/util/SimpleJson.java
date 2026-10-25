@@ -1,5 +1,11 @@
 package dev.jvmmcp.core.util;
 
+import java.io.File;
+import java.net.URI;
+import java.nio.file.Path;
+import java.time.ZoneId;
+import java.time.temporal.TemporalAccessor;
+import java.time.temporal.TemporalAmount;
 import java.util.*;
 
 /**
@@ -44,6 +50,18 @@ public final class SimpleJson {
         }
         if (obj instanceof OptionalDouble optional) {
             return optional.isPresent() ? toJson(optional.getAsDouble(), depth) : "null";
+        }
+        // Path is Iterable<Path>, but represents a scalar rather than a JSON array.
+        if (obj instanceof Path
+                || obj instanceof File
+                || obj instanceof URI
+                || obj instanceof TemporalAccessor
+                || obj instanceof TemporalAmount
+                || obj instanceof ZoneId
+                || obj instanceof Enum<?>
+                || obj instanceof UUID
+                || obj instanceof Character) {
+            obj = obj.toString();
         }
         if (obj instanceof String) {
             String s = (String) obj;
