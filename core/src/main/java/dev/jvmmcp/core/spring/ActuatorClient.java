@@ -86,21 +86,13 @@ public class ActuatorClient {
                 host.startsWith("[") && host.endsWith("]")
                         ? host.substring(1, host.length() - 1)
                         : host;
-        boolean isLiteralLoopback =
-                cleanHost.equalsIgnoreCase("localhost")
-                        || cleanHost.equals("127.0.0.1")
-                        || cleanHost.equals("::1")
-                        || cleanHost.equals("0:0:0:0:0:0:0:1");
-
-        if (!isLiteralLoopback) {
-            throw new IllegalArgumentException(
-                    "SSRF Protection: Actuator URLs must target localhost or loopback (got: "
-                            + host
-                            + ")");
-        }
 
         try {
             java.net.InetAddress[] addresses = java.net.InetAddress.getAllByName(cleanHost);
+            if (addresses.length == 0) {
+                throw new IllegalArgumentException(
+                        "SSRF Protection: Host resolved to no addresses: " + host);
+            }
             for (java.net.InetAddress addr : addresses) {
                 if (!addr.isLoopbackAddress()) {
                     throw new IllegalArgumentException(
@@ -169,9 +161,29 @@ public class ActuatorClient {
     }
 
     private HttpRequest.Builder newRequest(String url) {
+        URI uri = URI.create(url);
+        String scheme = uri.getScheme();
+
+        if (scheme == null
+                || (!scheme.equalsIgnoreCase("http") && !scheme.equalsIgnoreCase("https"))) {
+            throw new IllegalArgumentException("SSRF Protection: URL scheme must be http or https");
+        }
+
+        if (uri.getUserInfo() != null) {
+            throw new IllegalArgumentException("SSRF Protection: UserInfo not permitted");
+        }
+
+        String host = uri.getHost();
+        if (host == null) {
+            throw new IllegalArgumentException("SSRF Protection: Missing host in request URL");
+        }
+
+        // Revalidate all resolved addresses immediately before building the request.
+        validateLoopbackHost(host);
+
         HttpRequest.Builder builder =
                 HttpRequest.newBuilder()
-                        .uri(URI.create(url))
+                        .uri(uri)
                         .timeout(Duration.ofSeconds(5))
                         .header("Accept", "application/json")
                         .header("Accept-Encoding", "gzip, deflate");

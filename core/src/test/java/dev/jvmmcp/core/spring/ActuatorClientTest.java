@@ -247,6 +247,26 @@ class ActuatorClientTest {
                 .hasMessageContaining("SSRF Protection");
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"127.0.0.2", "127.0.1.1", "127.255.255.254", "::1", "0:0:0:0:0:0:0:1"})
+    void testSSRFProtectionAcceptsLoopbackAddresses(String host) {
+        String uriHost = host.contains(":") ? "[" + host + "]" : host;
+
+        assertThat(new ActuatorClient("http://" + uriHost + ":8080", ActuatorAuth.NONE))
+                .isNotNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"192.0.2.1", "2001:db8::1"})
+    void testSSRFProtectionRejectsNonLoopbackAddresses(String host) {
+        String uriHost = host.contains(":") ? "[" + host + "]" : host;
+
+        assertThatThrownBy(
+                        () -> new ActuatorClient("http://" + uriHost + ":8080", ActuatorAuth.NONE))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("not a loopback address");
+    }
+
     @Test
     void testInsecureAuthLogsWarningAndBuildsClient() {
         ActuatorAuth insecureAuth = ActuatorAuth.basic("admin", "admin", true);
