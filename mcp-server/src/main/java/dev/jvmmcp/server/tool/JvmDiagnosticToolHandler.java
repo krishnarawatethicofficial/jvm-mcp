@@ -13,10 +13,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Handles JVM diagnostic tools: list_jvms, get_memory_summary, get_heap_histogram,
- * get_thread_diagnostics, get_thread_dump, list_hikari_pools.
- */
 public class JvmDiagnosticToolHandler implements ToolHandler {
 
     @FunctionalInterface
@@ -26,23 +22,53 @@ public class JvmDiagnosticToolHandler implements ToolHandler {
 
     private final JvmAttachService attachService;
     private final JmxConnector jmxConnector;
+    private final Integer defaultPid;
 
     public JvmDiagnosticToolHandler() {
         this(new JvmAttachService());
     }
 
     public JvmDiagnosticToolHandler(JvmAttachService attachService) {
-        this(
-                attachService,
-                (vm, pid) ->
-                        vm != null
-                                ? JmxConnectionManager.connect(vm, pid)
-                                : JmxConnectionManager.connectLocal());
+        this(attachService, defaultJmxConnector());
     }
 
     public JvmDiagnosticToolHandler(JvmAttachService attachService, JmxConnector jmxConnector) {
+        this(attachService, jmxConnector, null);
+    }
+
+    private JvmDiagnosticToolHandler(
+            JvmAttachService attachService, JmxConnector jmxConnector, Integer defaultPid) {
         this.attachService = attachService;
         this.jmxConnector = jmxConnector;
+        this.defaultPid = defaultPid;
+    }
+
+    public static JvmDiagnosticToolHandler withDefaultPid(
+            JvmAttachService attachService, Integer defaultPid) {
+        return new JvmDiagnosticToolHandler(attachService, defaultJmxConnector(), defaultPid);
+    }
+
+    private static JmxConnector defaultJmxConnector() {
+        return (vm, pid) ->
+                vm != null
+                        ? JmxConnectionManager.connect(vm, pid)
+                        : JmxConnectionManager.connectLocal();
+    }
+
+    private List<String> requiredPidArguments() {
+        return defaultPid == null ? List.of("pid") : List.of();
+    }
+
+    private long resolvePid(Map<String, Object> args) {
+        if (args != null && args.containsKey("pid")) {
+            return ToolArgs.getPositiveLongArg(args, "pid", true);
+        }
+
+        if (defaultPid != null) {
+            return ToolArgs.getPositiveLongArg(Map.of("pid", defaultPid), "pid", true);
+        }
+
+        return ToolArgs.getPositiveLongArg(args, "pid", true);
     }
 
     @Override
@@ -64,12 +90,9 @@ public class JvmDiagnosticToolHandler implements ToolHandler {
                         "description", "Lists all running Java Virtual Machines on the host",
                         "inputSchema",
                                 Map.of(
-                                        "type",
-                                        "object",
-                                        "properties",
-                                        Map.of(),
-                                        "required",
-                                        List.of())),
+                                        "type", "object",
+                                        "properties", Map.of(),
+                                        "required", List.of())),
                 Map.of(
                         "name", "get_memory_summary",
                         "description",
@@ -85,7 +108,7 @@ public class JvmDiagnosticToolHandler implements ToolHandler {
                                                                 "number",
                                                                 "description",
                                                                 "Target JVM Process ID")),
-                                        "required", List.of("pid"))),
+                                        "required", requiredPidArguments())),
                 Map.of(
                         "name", "get_thread_diagnostics",
                         "description", "Inspects JVM thread states and detects deadlocks",
@@ -100,7 +123,7 @@ public class JvmDiagnosticToolHandler implements ToolHandler {
                                                                 "number",
                                                                 "description",
                                                                 "Target JVM Process ID")),
-                                        "required", List.of("pid"))),
+                                        "required", requiredPidArguments())),
                 Map.of(
                         "name", "get_heap_histogram",
                         "description", "Retrieves a histogram of class instances in the JVM heap",
@@ -110,18 +133,18 @@ public class JvmDiagnosticToolHandler implements ToolHandler {
                                         "properties",
                                                 Map.of(
                                                         "pid",
-                                                                Map.of(
-                                                                        "type",
-                                                                        "number",
-                                                                        "description",
-                                                                        "Target JVM Process ID"),
+                                                        Map.of(
+                                                                "type",
+                                                                "number",
+                                                                "description",
+                                                                "Target JVM Process ID"),
                                                         "limit",
-                                                                Map.of(
-                                                                        "type",
-                                                                        "number",
-                                                                        "description",
-                                                                        "Limit of classes to return (default 100)")),
-                                        "required", List.of("pid"))),
+                                                        Map.of(
+                                                                "type",
+                                                                "number",
+                                                                "description",
+                                                                "Limit of classes to return (default 100)")),
+                                        "required", requiredPidArguments())),
                 Map.of(
                         "name", "get_thread_dump",
                         "description", "Retrieves a full thread dump from the target JVM",
@@ -136,7 +159,7 @@ public class JvmDiagnosticToolHandler implements ToolHandler {
                                                                 "number",
                                                                 "description",
                                                                 "Target JVM Process ID")),
-                                        "required", List.of("pid"))),
+                                        "required", requiredPidArguments())),
                 Map.of(
                         "name", "list_hikari_pools",
                         "description",
@@ -152,7 +175,7 @@ public class JvmDiagnosticToolHandler implements ToolHandler {
                                                                 "number",
                                                                 "description",
                                                                 "Target JVM Process ID")),
-                                        "required", List.of("pid"))));
+                                        "required", requiredPidArguments())));
     }
 
     @Override
@@ -165,14 +188,16 @@ public class JvmDiagnosticToolHandler implements ToolHandler {
             return Map.of("content", content);
         }
 
-        long pid = ToolArgs.getPositiveLongArg(args, "pid", true);
+        long pid = resolvePid(args);
         AttachResult attachResult = attachService.attach(String.valueOf(pid));
+
         if (!attachResult.isSuccessful()) {
             throw new IllegalStateException(attachResult.message());
         }
 
         VirtualMachine vm = attachResult.virtualMachine().orElse(null);
         boolean detached = false;
+
         try {
             try (JmxConnectionManager jmxManager = jmxConnector.connect(vm, pid)) {
                 detached = true;
@@ -190,6 +215,7 @@ public class JvmDiagnosticToolHandler implements ToolHandler {
                 } else if ("get_heap_histogram".equals(toolName)) {
                     HeapHistogramReader histoReader = new HeapHistogramReader();
                     int limit = ToolArgs.getIntArg(args, "limit", 100, 1, 1000);
+
                     content.add(
                             Map.of(
                                     "type",

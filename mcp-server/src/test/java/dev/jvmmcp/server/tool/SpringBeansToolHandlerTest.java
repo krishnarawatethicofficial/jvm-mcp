@@ -94,6 +94,7 @@ class SpringBeansToolHandlerTest {
                         (vm, p) -> {
                             throw new IOException("JMX error");
                         });
+
         when(mockBeansClient.inspectBeansWithJmxProvider(eq(123L), any(), any(), any()))
                 .thenAnswer(
                         invocation -> {
@@ -123,6 +124,7 @@ class SpringBeansToolHandlerTest {
                         (vm, p) -> {
                             throw new IOException("JMX error");
                         });
+
         when(mockBeansClient.inspectBeansWithJmxProvider(eq(123L), any(), any(), any()))
                 .thenAnswer(
                         invocation -> {
@@ -296,8 +298,6 @@ class SpringBeansToolHandlerTest {
     @Test
     @DisplayName("get_bean_detail throws when beanName is missing")
     void testGetBeanDetailMissingName() {
-        when(mockAttachService.attach("123")).thenReturn(AttachResult.success("123", null));
-
         SpringBeansToolHandler handler =
                 new SpringBeansToolHandler(
                         mockAttachService,
@@ -323,5 +323,35 @@ class SpringBeansToolHandlerTest {
         assertThatThrownBy(() -> handler.execute("unknown_beans_tool", Map.of("pid", 123)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Unknown Spring Beans tool");
+    }
+
+    @Test
+    @DisplayName("uses default PID when pid is omitted")
+    void testDefaultPidWhenPidIsMissing() {
+        when(mockAttachService.attach("123")).thenReturn(AttachResult.processNotFound("123"));
+
+        SpringBeansToolHandler handler =
+                SpringBeansToolHandler.withDefaultPid(mockAttachService, 123);
+
+        assertThatThrownBy(() -> handler.execute("list_spring_beans", Map.of()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("PID 123 was not found");
+
+        verify(mockAttachService).attach("123");
+    }
+
+    @Test
+    @DisplayName("explicit PID overrides default PID")
+    void testExplicitPidOverridesDefault() {
+        when(mockAttachService.attach("456")).thenReturn(AttachResult.processNotFound("456"));
+
+        SpringBeansToolHandler handler =
+                SpringBeansToolHandler.withDefaultPid(mockAttachService, 123);
+
+        assertThatThrownBy(() -> handler.execute("list_spring_beans", Map.of("pid", 456)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("PID 456 was not found");
+
+        verify(mockAttachService).attach("456");
     }
 }

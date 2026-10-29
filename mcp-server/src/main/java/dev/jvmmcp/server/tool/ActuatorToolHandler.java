@@ -21,9 +21,14 @@ public class ActuatorToolHandler implements ToolHandler {
 
     private final ActuatorClientFactory clientFactory;
     private final Function<String, String> envProvider;
+    private final String defaultUrl;
 
     public ActuatorToolHandler() {
         this(ActuatorClient::new, System::getenv);
+    }
+
+    public ActuatorToolHandler(String defaultUrl) {
+        this(ActuatorClient::new, System::getenv, defaultUrl);
     }
 
     public ActuatorToolHandler(ActuatorClientFactory clientFactory) {
@@ -32,8 +37,20 @@ public class ActuatorToolHandler implements ToolHandler {
 
     public ActuatorToolHandler(
             ActuatorClientFactory clientFactory, Function<String, String> envProvider) {
+        this(clientFactory, envProvider, null);
+    }
+
+    public ActuatorToolHandler(
+            ActuatorClientFactory clientFactory,
+            Function<String, String> envProvider,
+            String defaultUrl) {
         this.clientFactory = clientFactory;
         this.envProvider = envProvider;
+        this.defaultUrl = defaultUrl;
+    }
+
+    private List<String> requiredUrlArguments() {
+        return defaultUrl == null || defaultUrl.isBlank() ? List.of("url") : List.of();
     }
 
     @Override
@@ -58,7 +75,7 @@ public class ActuatorToolHandler implements ToolHandler {
                                                                 "string",
                                                                 "description",
                                                                 "Actuator Base URL (e.g. http://localhost:8080)")),
-                                        "required", List.of("url"))),
+                                        "required", requiredUrlArguments())),
                 Map.of(
                         "name", "get_actuator_metrics",
                         "description",
@@ -69,18 +86,18 @@ public class ActuatorToolHandler implements ToolHandler {
                                         "properties",
                                                 Map.of(
                                                         "url",
-                                                                Map.of(
-                                                                        "type",
-                                                                        "string",
-                                                                        "description",
-                                                                        "Actuator Base URL (e.g. http://localhost:8080)"),
+                                                        Map.of(
+                                                                "type",
+                                                                "string",
+                                                                "description",
+                                                                "Actuator Base URL (e.g. http://localhost:8080)"),
                                                         "metrics",
-                                                                Map.of(
-                                                                        "type",
-                                                                        "string",
-                                                                        "description",
-                                                                        "Optional comma-separated list of metric names (e.g. jvm.memory.used,jvm.threads.live)")),
-                                        "required", List.of("url"))),
+                                                        Map.of(
+                                                                "type",
+                                                                "string",
+                                                                "description",
+                                                                "Optional comma-separated list of metric names (e.g. jvm.memory.used,jvm.threads.live)")),
+                                        "required", requiredUrlArguments())),
                 Map.of(
                         "name", "get_actuator_startup",
                         "description", "Fetches Spring Boot Actuator /startup endpoint",
@@ -95,12 +112,21 @@ public class ActuatorToolHandler implements ToolHandler {
                                                                 "string",
                                                                 "description",
                                                                 "Actuator Base URL (e.g. http://localhost:8080)")),
-                                        "required", List.of("url"))));
+                                        "required", requiredUrlArguments())));
     }
 
     @Override
     public Map<String, Object> execute(String toolName, Map<String, Object> args) throws Exception {
-        String url = ToolArgs.getStringArg(args, "url", true);
+        String url = ToolArgs.getStringArg(args, "url", false);
+
+        if (url == null || url.isBlank()) {
+            url = defaultUrl;
+        }
+
+        if (url == null || url.isBlank()) {
+            throw new IllegalArgumentException("Missing required argument: url");
+        }
+
         String user = envProvider.apply("ACTUATOR_USER");
         String password = envProvider.apply("ACTUATOR_PASSWORD");
         String token = envProvider.apply("ACTUATOR_TOKEN");
@@ -110,6 +136,7 @@ public class ActuatorToolHandler implements ToolHandler {
                 token != null
                         ? ActuatorAuth.bearer(token, insecure)
                         : ActuatorAuth.basic(user, password, insecure);
+
         auth.validate()
                 .ifPresent(
                         error -> {
@@ -123,6 +150,7 @@ public class ActuatorToolHandler implements ToolHandler {
             content.add(Map.of("type", "text", "text", client.getHealth()));
         } else if ("get_actuator_metrics".equals(toolName)) {
             String metricsParam = ToolArgs.getStringArg(args, "metrics", false);
+
             if (metricsParam != null && !metricsParam.isBlank()) {
                 if (metricsParam.contains(",")) {
                     List<String> metricList =
@@ -130,6 +158,7 @@ public class ActuatorToolHandler implements ToolHandler {
                                     .map(String::trim)
                                     .filter(s -> !s.isEmpty())
                                     .toList();
+
                     content.add(Map.of("type", "text", "text", client.getMetricsBatch(metricList)));
                 } else {
                     content.add(
