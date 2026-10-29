@@ -30,38 +30,66 @@ public class SpringBeansToolHandler implements ToolHandler {
     private final JvmAttachService attachService;
     private final SpringBeansClient beansClient;
     private final JmxConnector jmxConnector;
+    private final Integer defaultPid;
 
     public SpringBeansToolHandler() {
         this(new JvmAttachService());
     }
 
     public SpringBeansToolHandler(JvmAttachService attachService) {
-        this(
-                attachService,
-                new SpringBeansClient(),
-                (vm, pid) ->
-                        vm != null
-                                ? JmxConnectionManager.connect(vm, pid)
-                                : JmxConnectionManager.connectLocal());
+        this(attachService, new SpringBeansClient());
     }
 
     public SpringBeansToolHandler(JvmAttachService attachService, SpringBeansClient beansClient) {
-        this(
-                attachService,
-                beansClient,
-                (vm, pid) ->
-                        vm != null
-                                ? JmxConnectionManager.connect(vm, pid)
-                                : JmxConnectionManager.connectLocal());
+        this(attachService, beansClient, defaultJmxConnector(), null);
     }
 
     public SpringBeansToolHandler(
             JvmAttachService attachService,
             SpringBeansClient beansClient,
             JmxConnector jmxConnector) {
+        this(attachService, beansClient, jmxConnector, null);
+    }
+
+    private SpringBeansToolHandler(
+            JvmAttachService attachService,
+            SpringBeansClient beansClient,
+            JmxConnector jmxConnector,
+            Integer defaultPid) {
         this.attachService = attachService;
         this.beansClient = beansClient;
         this.jmxConnector = jmxConnector;
+        this.defaultPid = defaultPid;
+    }
+
+    public static SpringBeansToolHandler withDefaultPid(
+            JvmAttachService attachService, Integer defaultPid) {
+        return new SpringBeansToolHandler(
+                attachService, new SpringBeansClient(), defaultJmxConnector(), defaultPid);
+    }
+
+    private static JmxConnector defaultJmxConnector() {
+        return (vm, pid) ->
+                vm != null
+                        ? JmxConnectionManager.connect(vm, pid)
+                        : JmxConnectionManager.connectLocal();
+    }
+
+    private List<String> requiredPidArguments() {
+        return defaultPid == null ? List.of("pid") : List.of();
+    }
+
+    private long resolvePid(Map<String, Object> args) {
+        if (args != null && args.containsKey("pid")) {
+            return ToolArgs.getPositiveLongArg(args, "pid", true);
+        }
+
+        if (defaultPid != null) {
+            return ToolArgs.getPositiveLongArg(
+                    Map.<String, Object>of("pid", defaultPid), "pid", true);
+        }
+
+        return ToolArgs.getPositiveLongArg(args, "pid", true);
     }
 
     @Override
@@ -123,34 +151,38 @@ public class SpringBeansToolHandler implements ToolHandler {
                                                                 false,
                                                                 "description",
                                                                 "Return counts and top 10 packages per context for all matching beans; limit and offset do not affect the summary")),
-                                        "required", List.of("pid"))),
+                                        "required", requiredPidArguments())),
                 Map.of(
                         "name", "get_bean_detail",
                         "description",
                                 "Gets detailed information about a Spring bean; exact case-sensitive name or alias is preferred, with case-insensitive fallback only when unambiguous",
                         "inputSchema",
                                 Map.of(
-                                        "type", "object",
+                                        "type",
+                                        "object",
                                         "properties",
-                                                Map.of(
-                                                        "pid",
-                                                                Map.of(
-                                                                        "type",
-                                                                        "number",
-                                                                        "description",
-                                                                        "Target JVM Process ID"),
-                                                        "beanName",
-                                                                Map.of(
-                                                                        "type",
-                                                                        "string",
-                                                                        "description",
-                                                                        "Bean name or alias; case-sensitive exact match is preferred, with case-insensitive fallback only when unambiguous")),
-                                        "required", List.of("pid", "beanName"))));
+                                        Map.of(
+                                                "pid",
+                                                        Map.of(
+                                                                "type",
+                                                                "number",
+                                                                "description",
+                                                                "Target JVM Process ID"),
+                                                "beanName",
+                                                        Map.of(
+                                                                "type",
+                                                                "string",
+                                                                "description",
+                                                                "Bean name or alias; case-sensitive exact match is preferred, with case-insensitive fallback only when unambiguous")),
+                                        "required",
+                                        defaultPid == null
+                                                ? List.of("pid", "beanName")
+                                                : List.of("beanName"))));
     }
 
     @Override
     public Map<String, Object> execute(String toolName, Map<String, Object> args) throws Exception {
-        long pid = ToolArgs.getPositiveLongArg(args, "pid", true);
+        long pid = resolvePid(args);
 
         int limit = DEFAULT_BEAN_LIMIT;
         int offset = 0;

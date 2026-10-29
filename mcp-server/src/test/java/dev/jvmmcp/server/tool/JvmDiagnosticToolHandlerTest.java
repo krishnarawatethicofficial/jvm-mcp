@@ -273,4 +273,34 @@ class JvmDiagnosticToolHandlerTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Unknown JVM diagnostic tool");
     }
+
+    @Test
+    @DisplayName("uses default PID when pid is omitted")
+    void testDefaultPidWhenPidIsMissing() {
+        when(mockAttachService.attach("123")).thenReturn(AttachResult.processNotFound("123"));
+
+        JvmDiagnosticToolHandler handler =
+                JvmDiagnosticToolHandler.withDefaultPid(mockAttachService, 123);
+
+        assertThatThrownBy(() -> handler.execute("get_memory_summary", Map.of()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("PID 123 was not found");
+
+        verify(mockAttachService).attach("123");
+    }
+
+    @Test
+    @DisplayName("explicit PID overrides default PID")
+    void testExplicitPidOverridesDefault() {
+        when(mockAttachService.attach("456")).thenReturn(AttachResult.processNotFound("456"));
+
+        JvmDiagnosticToolHandler handler =
+                JvmDiagnosticToolHandler.withDefaultPid(mockAttachService, 123);
+
+        assertThatThrownBy(() -> handler.execute("get_memory_summary", Map.of("pid", 456)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("PID 456 was not found");
+
+        verify(mockAttachService).attach("456");
+    }
 }

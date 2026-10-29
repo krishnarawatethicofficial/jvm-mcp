@@ -601,4 +601,34 @@ class SpringBeansToolHandlerTest {
         assertThat(topPackages.get(1).get("package")).isEqualTo("com.example.repository");
         assertThat(((Number) topPackages.get(1).get("beanCount")).intValue()).isEqualTo(1);
     }
+
+    @Test
+    @DisplayName("uses default PID when pid is omitted")
+    void testDefaultPidWhenPidIsMissing() {
+        when(mockAttachService.attach("123")).thenReturn(AttachResult.processNotFound("123"));
+
+        SpringBeansToolHandler handler =
+                SpringBeansToolHandler.withDefaultPid(mockAttachService, 123);
+
+        assertThatThrownBy(() -> handler.execute("list_spring_beans", Map.of()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("PID 123 was not found");
+
+        verify(mockAttachService).attach("123");
+    }
+
+    @Test
+    @DisplayName("explicit PID overrides default PID")
+    void testExplicitPidOverridesDefault() {
+        when(mockAttachService.attach("456")).thenReturn(AttachResult.processNotFound("456"));
+
+        SpringBeansToolHandler handler =
+                SpringBeansToolHandler.withDefaultPid(mockAttachService, 123);
+
+        assertThatThrownBy(() -> handler.execute("list_spring_beans", Map.of("pid", 456)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("PID 456 was not found");
+
+        verify(mockAttachService).attach("456");
+    }
 }
