@@ -105,7 +105,6 @@ public class ServeCommand implements Callable<Integer> {
 
         if (targetPid != null) {
             AttachResult result = attachService.attach(String.valueOf(targetPid));
-
             if (!result.isSuccessful()) {
                 System.err.println(
                         "[jvm-mcp] Error attaching to target PID "
@@ -141,7 +140,6 @@ public class ServeCommand implements Callable<Integer> {
                         inStream != null
                                 ? inStream
                                 : (testInStream != null ? testInStream : System.in);
-
                 return new McpTransport(new McpDispatcher(registry)).start(in, System.out);
             }
         } finally {
