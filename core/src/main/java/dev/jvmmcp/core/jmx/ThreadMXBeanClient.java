@@ -140,10 +140,11 @@ public class ThreadMXBeanClient implements ThreadDiagnosticPort {
             return new ThreadDump(pid, Instant.now(), 0, List.of());
         }
 
+        boolean cpuTimeEnabled = enableThreadCpuTimeMonitoring(threadMXBean);
         List<ThreadDetail> threadDetails =
                 Arrays.stream(threadInfos)
                         .filter(Objects::nonNull)
-                        .map(ThreadDetail::from)
+                        .map(info -> toThreadDetail(threadMXBean, info, cpuTimeEnabled))
                         .toList();
 
         List<ThreadDetail> virtualThreads = null;
@@ -158,6 +159,101 @@ public class ThreadMXBeanClient implements ThreadDiagnosticPort {
 
         return new ThreadDump(
                 pid, Instant.now(), threadDetails.size(), threadDetails, virtualThreads);
+    }
+
+    /**
+     * Returns active platform threads ordered by their cumulative CPU time since thread start.
+     * CPU-time monitoring is enabled on the target JVM when supported. Threads for which the target
+     * JVM cannot provide a CPU-time reading are omitted from the result. This is a lifetime total,
+     * not an interval CPU-utilization percentage.
+     *
+     * @param pid target process ID
+     * @param limit maximum number of threads to return; non-positive values return an empty list
+     */
+    public List<ThreadDetail> getTopCpuThreads(long pid, int limit) throws IOException {
+        if (limit <= 0) {
+            return List.of();
+        }
+
+        ThreadMXBean threadMXBean =
+                ManagementFactory.newPlatformMXBeanProxy(
+                        mbsc, ManagementFactory.THREAD_MXBEAN_NAME, ThreadMXBean.class);
+        if (!enableThreadCpuTimeMonitoring(threadMXBean)) {
+            return List.of();
+        }
+
+        long[] threadIds = threadMXBean.getAllThreadIds();
+        if (threadIds == null || threadIds.length == 0) {
+            return List.of();
+        }
+
+        // A shallow stack gives the caller useful context without the cost of a full thread dump.
+        ThreadInfo[] threadInfos = threadMXBean.getThreadInfo(threadIds, 10);
+        if (threadInfos == null || threadInfos.length == 0) {
+            return List.of();
+        }
+
+        List<ThreadDetail> cpuThreads = new ArrayList<>();
+        for (ThreadInfo info : threadInfos) {
+            if (info == null) {
+                continue;
+            }
+
+            // Read user time first so the total CPU-time reading is not older than its subset.
+            Long userTimeNs = readThreadCpuTime(threadMXBean, info.getThreadId(), true);
+            Long cpuTimeNs = readThreadCpuTime(threadMXBean, info.getThreadId(), false);
+            if (cpuTimeNs == null) {
+                // A negative MXBean value indicates that timing is unavailable for this thread.
+                continue;
+            }
+
+            cpuThreads.add(ThreadDetail.from(info, cpuTimeNs, userTimeNs));
+        }
+
+        return cpuThreads.stream()
+                .sorted(Comparator.comparing(ThreadDetail::cpuTimeNs).reversed())
+                .limit(limit)
+                .toList();
+    }
+
+    private ThreadDetail toThreadDetail(
+            ThreadMXBean threadMXBean, ThreadInfo info, boolean cpuTimeEnabled) {
+        if (!cpuTimeEnabled) {
+            return ThreadDetail.from(info);
+        }
+
+        // User time is a subset of total CPU time. Read it first to avoid a newer user-time value
+        // appearing greater than an older total CPU-time value in the same snapshot.
+        Long userTimeNs = readThreadCpuTime(threadMXBean, info.getThreadId(), true);
+        Long cpuTimeNs = readThreadCpuTime(threadMXBean, info.getThreadId(), false);
+        return ThreadDetail.from(info, cpuTimeNs, userTimeNs);
+    }
+
+    private boolean enableThreadCpuTimeMonitoring(ThreadMXBean threadMXBean) {
+        try {
+            if (!threadMXBean.isThreadCpuTimeSupported()) {
+                return false;
+            }
+            if (!threadMXBean.isThreadCpuTimeEnabled()) {
+                threadMXBean.setThreadCpuTimeEnabled(true);
+            }
+            return threadMXBean.isThreadCpuTimeEnabled();
+        } catch (SecurityException | UnsupportedOperationException ignored) {
+            // Monitoring may be prohibited by the target JVM's security configuration.
+            return false;
+        }
+    }
+
+    private Long readThreadCpuTime(ThreadMXBean threadMXBean, long threadId, boolean userTime) {
+        try {
+            long timeNs =
+                    userTime
+                            ? threadMXBean.getThreadUserTime(threadId)
+                            : threadMXBean.getThreadCpuTime(threadId);
+            return timeNs >= 0 ? timeNs : null;
+        } catch (SecurityException | UnsupportedOperationException ignored) {
+            return null;
+        }
     }
 
     public DeadlockReport detectDeadlocks() throws IOException {

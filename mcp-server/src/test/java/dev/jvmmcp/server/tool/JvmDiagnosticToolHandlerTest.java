@@ -181,7 +181,7 @@ class JvmDiagnosticToolHandlerTest {
     }
 
     @Test
-    @DisplayName("get_thread_diagnostics executes successfully and returns deadlock report")
+    @DisplayName("get_thread_diagnostics returns summary, deadlocks, and top CPU threads")
     void testGetThreadDiagnostics() throws Exception {
         when(mockAttachService.attach("100")).thenReturn(AttachResult.success("100", null));
 
@@ -189,11 +189,12 @@ class JvmDiagnosticToolHandlerTest {
                 new JvmDiagnosticToolHandler(
                         mockAttachService, (vm, p) -> JmxConnectionManager.connectLocal());
 
-        Map<String, Object> result = handler.execute("get_thread_diagnostics", Map.of("pid", 100));
+        Map<String, Object> result =
+                handler.execute("get_thread_diagnostics", Map.of("pid", 100, "topCpuLimit", 1));
         assertThat(result.get("isError")).isNull();
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> content = (List<Map<String, Object>>) result.get("content");
-        assertThat(content).hasSize(2);
+        assertThat(content).hasSize(3);
         assertThat(content.get(0).get("text").toString()).contains("totalCount");
         // Both blocks are plain JSON, so a client can parse each one (#92).
         assertThat(SimpleJson.parseObject(content.get(0).get("text").toString()))
@@ -202,6 +203,14 @@ class JvmDiagnosticToolHandlerTest {
                 SimpleJson.parseObject(content.get(1).get("text").toString());
         assertThat(deadlocks).containsEntry("status", "NONE");
         assertThat(deadlocks).containsKey("deadlockCount");
+        Object topCpuThreads = SimpleJson.parse(content.get(2).get("text").toString());
+        assertThat(topCpuThreads).isInstanceOf(List.class);
+        assertThat((List<?>) topCpuThreads).hasSizeLessThanOrEqualTo(1);
+        if (!((List<?>) topCpuThreads).isEmpty()) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> topThread = (Map<String, Object>) ((List<?>) topCpuThreads).get(0);
+            assertThat(topThread).containsKeys("cpuTimeNs", "userTimeNs", "threadId", "threadName");
+        }
     }
 
     @Test

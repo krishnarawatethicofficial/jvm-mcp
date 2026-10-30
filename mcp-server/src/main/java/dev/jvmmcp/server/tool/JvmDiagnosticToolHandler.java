@@ -118,7 +118,8 @@ public class JvmDiagnosticToolHandler implements ToolHandler {
                                         "required", requiredPidArguments())),
                 Map.of(
                         "name", "get_thread_diagnostics",
-                        "description", "Inspects JVM thread states and detects deadlocks",
+                        "description",
+                                "Inspects JVM thread states, detects deadlocks, and reports platform threads ranked by cumulative CPU time when monitoring is available",
                         "inputSchema",
                                 Map.of(
                                         "type", "object",
@@ -137,7 +138,17 @@ public class JvmDiagnosticToolHandler implements ToolHandler {
                                                                 "default",
                                                                 false,
                                                                 "description",
-                                                                "Include virtual-thread counts; may create a large diagnostic dump")),
+                                                                "Include virtual-thread counts; may create a large diagnostic dump"),
+                                                        "topCpuLimit",
+                                                        Map.of(
+                                                                "type",
+                                                                "integer",
+                                                                "minimum",
+                                                                1,
+                                                                "maximum",
+                                                                100,
+                                                                "description",
+                                                                "Maximum number of top CPU threads to return (default 5)")),
                                         "required", requiredPidArguments())),
                 Map.of(
                         "name", "get_heap_histogram",
@@ -242,6 +253,7 @@ public class JvmDiagnosticToolHandler implements ToolHandler {
                                                     pid,
                                                     limit))));
                 } else if ("get_thread_diagnostics".equals(toolName)) {
+                    int topCpuLimit = ToolArgs.getIntArg(args, "topCpuLimit", 5, 1, 100);
                     String javaSpecificationVersion =
                             includeVirtualThreads ? getJavaSpecificationVersion(vm) : null;
                     try (ThreadMXBeanClient threadClient =
@@ -262,6 +274,13 @@ public class JvmDiagnosticToolHandler implements ToolHandler {
                                         "text",
                                         "text",
                                         SimpleJson.toJson(threadClient.detectDeadlocks())));
+                        content.add(
+                                Map.of(
+                                        "type",
+                                        "text",
+                                        "text",
+                                        SimpleJson.toJson(
+                                                threadClient.getTopCpuThreads(pid, topCpuLimit))));
                     }
                 } else if ("get_thread_dump".equals(toolName)) {
                     try (ThreadMXBeanClient threadClient =

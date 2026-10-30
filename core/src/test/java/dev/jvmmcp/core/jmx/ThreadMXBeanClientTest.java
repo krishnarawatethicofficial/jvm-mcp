@@ -524,4 +524,180 @@ class ThreadMXBeanClientTest {
             mxBean.setThreadContentionMonitoringEnabled(false);
         }
     }
+
+    @Test
+    @DisplayName("getThreadDump includes CPU and user time when monitoring is supported")
+    void shouldIncludeCpuTimesInThreadDump() throws Exception {
+        java.lang.management.ThreadMXBean localBean = ManagementFactory.getThreadMXBean();
+        long threadId = Thread.currentThread().threadId();
+        java.lang.management.ThreadInfo threadInfo = localBean.getThreadInfo(threadId, 10);
+        java.lang.management.ThreadMXBean mockBean = mock(java.lang.management.ThreadMXBean.class);
+        when(mockBean.dumpAllThreads(true, true))
+                .thenReturn(new java.lang.management.ThreadInfo[] {threadInfo});
+        when(mockBean.isThreadCpuTimeSupported()).thenReturn(true);
+        when(mockBean.isThreadCpuTimeEnabled()).thenReturn(false, true);
+        when(mockBean.getThreadCpuTime(threadId)).thenReturn(125_000_000L);
+        when(mockBean.getThreadUserTime(threadId)).thenReturn(100_000_000L);
+
+        try (org.mockito.MockedStatic<ManagementFactory> mfStatic =
+                org.mockito.Mockito.mockStatic(ManagementFactory.class)) {
+            mfStatic.when(
+                            () ->
+                                    ManagementFactory.newPlatformMXBeanProxy(
+                                            any(),
+                                            anyString(),
+                                            org.mockito.ArgumentMatchers.eq(
+                                                    java.lang.management.ThreadMXBean.class)))
+                    .thenReturn(mockBean);
+
+            ThreadDump dump =
+                    new ThreadMXBeanClient(connectionManager.getMBeanServerConnection(), null)
+                            .getThreadDump(42L);
+
+            assertThat(dump.threads()).hasSize(1);
+            assertThat(dump.threads().get(0).cpuTimeNs()).isEqualTo(125_000_000L);
+            assertThat(dump.threads().get(0).userTimeNs()).isEqualTo(100_000_000L);
+            org.mockito.Mockito.verify(mockBean).setThreadCpuTimeEnabled(true);
+            org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(mockBean);
+            inOrder.verify(mockBean).getThreadUserTime(threadId);
+            inOrder.verify(mockBean).getThreadCpuTime(threadId);
+        }
+    }
+
+    @Test
+    @DisplayName("getThreadDump leaves CPU times unavailable when monitoring is unsupported")
+    void shouldLeaveCpuTimesUnavailableWhenUnsupported() throws Exception {
+        java.lang.management.ThreadMXBean localBean = ManagementFactory.getThreadMXBean();
+        java.lang.management.ThreadInfo threadInfo =
+                localBean.getThreadInfo(Thread.currentThread().threadId(), 10);
+        java.lang.management.ThreadMXBean mockBean = mock(java.lang.management.ThreadMXBean.class);
+        when(mockBean.dumpAllThreads(true, true))
+                .thenReturn(new java.lang.management.ThreadInfo[] {threadInfo});
+        when(mockBean.isThreadCpuTimeSupported()).thenReturn(false);
+
+        try (org.mockito.MockedStatic<ManagementFactory> mfStatic =
+                org.mockito.Mockito.mockStatic(ManagementFactory.class)) {
+            mfStatic.when(
+                            () ->
+                                    ManagementFactory.newPlatformMXBeanProxy(
+                                            any(),
+                                            anyString(),
+                                            org.mockito.ArgumentMatchers.eq(
+                                                    java.lang.management.ThreadMXBean.class)))
+                    .thenReturn(mockBean);
+
+            ThreadDump dump =
+                    new ThreadMXBeanClient(connectionManager.getMBeanServerConnection(), null)
+                            .getThreadDump(42L);
+
+            assertThat(dump.threads()).hasSize(1);
+            assertThat(dump.threads().get(0).cpuTimeNs()).isNull();
+            assertThat(dump.threads().get(0).userTimeNs()).isNull();
+            org.mockito.Mockito.verify(mockBean, org.mockito.Mockito.never())
+                    .setThreadCpuTimeEnabled(true);
+        }
+    }
+
+    @Test
+    @DisplayName("getTopCpuThreads sorts by CPU time and applies the requested limit")
+    void shouldReturnTopCpuThreadsInDescendingOrder() throws Exception {
+        java.lang.management.ThreadMXBean localBean = ManagementFactory.getThreadMXBean();
+        CountDownLatch workerReady = new CountDownLatch(1);
+        CountDownLatch releaseWorker = new CountDownLatch(1);
+        Thread worker =
+                new Thread(
+                        () -> {
+                            workerReady.countDown();
+                            try {
+                                releaseWorker.await();
+                            } catch (InterruptedException ignored) {
+                                Thread.currentThread().interrupt();
+                            }
+                        },
+                        "cpu-order-worker");
+        worker.start();
+        try {
+            assertThat(workerReady.await(2, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            long currentThreadId = Thread.currentThread().threadId();
+            long workerThreadId = worker.threadId();
+            long[] threadIds = {currentThreadId, workerThreadId};
+            java.lang.management.ThreadInfo[] threadInfos = localBean.getThreadInfo(threadIds, 10);
+
+            java.lang.management.ThreadMXBean mockBean =
+                    mock(java.lang.management.ThreadMXBean.class);
+            when(mockBean.isThreadCpuTimeSupported()).thenReturn(true);
+            when(mockBean.isThreadCpuTimeEnabled()).thenReturn(false, true);
+            when(mockBean.getAllThreadIds()).thenReturn(threadIds);
+            when(mockBean.getThreadInfo(threadIds, 10)).thenReturn(threadInfos);
+            when(mockBean.getThreadCpuTime(currentThreadId)).thenReturn(50_000_000L);
+            when(mockBean.getThreadCpuTime(workerThreadId)).thenReturn(250_000_000L);
+            when(mockBean.getThreadUserTime(currentThreadId)).thenReturn(40_000_000L);
+            when(mockBean.getThreadUserTime(workerThreadId)).thenReturn(200_000_000L);
+
+            try (org.mockito.MockedStatic<ManagementFactory> mfStatic =
+                    org.mockito.Mockito.mockStatic(ManagementFactory.class)) {
+                mfStatic.when(
+                                () ->
+                                        ManagementFactory.newPlatformMXBeanProxy(
+                                                any(),
+                                                anyString(),
+                                                org.mockito.ArgumentMatchers.eq(
+                                                        java.lang.management.ThreadMXBean.class)))
+                        .thenReturn(mockBean);
+
+                List<dev.jvmmcp.core.model.ThreadDetail> topThreads =
+                        new ThreadMXBeanClient(connectionManager.getMBeanServerConnection(), null)
+                                .getTopCpuThreads(42L, 1);
+
+                assertThat(topThreads).hasSize(1);
+                assertThat(topThreads.get(0).threadId()).isEqualTo(workerThreadId);
+                assertThat(topThreads.get(0).cpuTimeNs()).isEqualTo(250_000_000L);
+                assertThat(topThreads.get(0).userTimeNs()).isEqualTo(200_000_000L);
+                org.mockito.Mockito.verify(mockBean).setThreadCpuTimeEnabled(true);
+                org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(mockBean);
+                inOrder.verify(mockBean).getThreadUserTime(currentThreadId);
+                inOrder.verify(mockBean).getThreadCpuTime(currentThreadId);
+            }
+        } finally {
+            releaseWorker.countDown();
+            worker.join(2_000);
+        }
+    }
+
+    @Test
+    @DisplayName("getTopCpuThreads returns an empty list when CPU-time monitoring is unsupported")
+    void shouldReturnNoTopCpuThreadsWhenMonitoringUnsupported() throws Exception {
+        java.lang.management.ThreadMXBean mockBean = mock(java.lang.management.ThreadMXBean.class);
+        when(mockBean.isThreadCpuTimeSupported()).thenReturn(false);
+
+        try (org.mockito.MockedStatic<ManagementFactory> mfStatic =
+                org.mockito.Mockito.mockStatic(ManagementFactory.class)) {
+            mfStatic.when(
+                            () ->
+                                    ManagementFactory.newPlatformMXBeanProxy(
+                                            any(),
+                                            anyString(),
+                                            org.mockito.ArgumentMatchers.eq(
+                                                    java.lang.management.ThreadMXBean.class)))
+                    .thenReturn(mockBean);
+
+            List<dev.jvmmcp.core.model.ThreadDetail> topThreads =
+                    new ThreadMXBeanClient(connectionManager.getMBeanServerConnection(), null)
+                            .getTopCpuThreads(42L, 5);
+
+            assertThat(topThreads).isEmpty();
+            org.mockito.Mockito.verify(mockBean, org.mockito.Mockito.never()).getAllThreadIds();
+            org.mockito.Mockito.verify(mockBean, org.mockito.Mockito.never())
+                    .setThreadCpuTimeEnabled(true);
+        }
+    }
+
+    @Test
+    @DisplayName("getTopCpuThreads returns an empty list for a non-positive limit")
+    void shouldReturnNoTopCpuThreadsForNonPositiveLimit() throws Exception {
+        List<dev.jvmmcp.core.model.ThreadDetail> topThreads =
+                threadClient.getTopCpuThreads(ProcessHandle.current().pid(), 0);
+
+        assertThat(topThreads).isEmpty();
+    }
 }

@@ -673,4 +673,55 @@ class ThreadsCommandTest {
             System.setOut(originalOut);
         }
     }
+
+    @Test
+    @DisplayName("threads command with --top-cpu displays the highest cumulative CPU consumers")
+    void shouldDisplayTopCpuThreads() throws Exception {
+        long targetPid = 100L;
+        when(mockAttachService.attach(String.valueOf(targetPid)))
+                .thenReturn(AttachResult.success(String.valueOf(targetPid), null));
+
+        ThreadMXBeanClient mockClient = Mockito.mock(ThreadMXBeanClient.class);
+        dev.jvmmcp.core.model.ThreadDetail cpuThread =
+                new dev.jvmmcp.core.model.ThreadDetail(
+                        7L,
+                        "hot-worker",
+                        "RUNNABLE",
+                        null,
+                        null,
+                        null,
+                        0L,
+                        0L,
+                        0L,
+                        0L,
+                        false,
+                        false,
+                        List.of(),
+                        250_000_000L,
+                        200_000_000L);
+        when(mockClient.getTopCpuThreads(targetPid, 5)).thenReturn(List.of(cpuThread));
+
+        ThreadsCommand command = Mockito.spy(new ThreadsCommand(mockAttachService));
+        command.pid = targetPid;
+        command.threadFlags.topCpu = true;
+        doReturn(mockClient).when(command).createThreadMXBeanClient(any());
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        PrintStream originalOut = System.out;
+        try {
+            System.setOut(new PrintStream(out));
+            assertThat(command.call()).isZero();
+
+            String output = out.toString();
+            assertThat(output)
+                    .contains("TOP CPU THREADS FOR PID " + targetPid)
+                    .contains("hot-worker")
+                    .contains("250.000")
+                    .contains("200.000")
+                    .doesNotContain("JVM THREAD DIAGNOSTICS", "DEADLOCK STATUS");
+            Mockito.verify(mockClient).getTopCpuThreads(targetPid, 5);
+        } finally {
+            System.setOut(originalOut);
+        }
+    }
 }

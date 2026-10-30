@@ -7,6 +7,7 @@ import dev.jvmmcp.core.jmx.ThreadMXBeanClient;
 import dev.jvmmcp.core.model.*;
 import dev.jvmmcp.core.util.SimpleJson;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.Callable;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
@@ -17,7 +18,7 @@ import picocli.CommandLine.Parameters;
         name = "threads",
         aliases = {"thread", "th"},
         description =
-                "Inspects JVM thread states, captures thread dumps, and detects circular deadlocks",
+                "Inspects JVM thread states, captures thread dumps, detects deadlocks, and ranks top CPU threads",
         mixinStandardHelpOptions = true)
 public class ThreadsCommand implements Callable<Integer> {
 
@@ -97,6 +98,11 @@ public class ThreadsCommand implements Callable<Integer> {
 
                     if (flags.deadlocksOnly) {
                         printDeadlocks(client);
+                        return 0;
+                    }
+
+                    if (flags.topCpu) {
+                        printTopCpuThreads(client);
                         return 0;
                     }
 
@@ -219,6 +225,43 @@ public class ThreadsCommand implements Callable<Integer> {
                 System.out.println("    at " + f);
             }
             System.out.println();
+        }
+    }
+
+    private void printTopCpuThreads(ThreadMXBeanClient client) throws Exception {
+        List<ThreadDetail> topThreads = client.getTopCpuThreads(pid, 5);
+
+        System.out.println("=".repeat(100));
+        System.out.printf(" TOP CPU THREADS FOR PID %d%n", pid);
+        System.out.println("Sorted by cumulative CPU time since each thread started.");
+        System.out.println("=".repeat(100));
+
+        if (topThreads.isEmpty()) {
+            System.out.println(
+                    "Thread CPU-time monitoring is unsupported, disabled, or unavailable "
+                            + "for active threads.");
+            return;
+        }
+
+        System.out.printf(
+                Locale.ROOT,
+                "%-10s %-32s %-14s %-14s %s%n",
+                "THREAD ID",
+                "THREAD NAME",
+                "CPU TIME (ms)",
+                "USER TIME (ms)",
+                "STATE");
+        for (ThreadDetail thread : topThreads) {
+            System.out.printf(
+                    Locale.ROOT,
+                    "%-10d %-32s %-14.3f %-14s %s%n",
+                    thread.threadId(),
+                    thread.threadName(),
+                    thread.cpuTimeNs() / 1_000_000.0,
+                    thread.userTimeNs() != null
+                            ? String.format(Locale.ROOT, "%.3f", thread.userTimeNs() / 1_000_000.0)
+                            : "N/A",
+                    thread.state());
         }
     }
 
