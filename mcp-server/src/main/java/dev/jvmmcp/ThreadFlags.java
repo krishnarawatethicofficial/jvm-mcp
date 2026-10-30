@@ -17,4 +17,9 @@ public class ThreadFlags {
             names = {"--blocked", "-b"},
             description = "List only blocked threads")
     boolean blockedOnly;
+
+    @Option(
+            names = {"--top-cpu"},
+            description = "Show the five platform threads with the highest cumulative CPU time")
+    boolean topCpu;
 }
