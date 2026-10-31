@@ -62,7 +62,7 @@ class ToolArgsTest {
     }
 
     @Test
-    @DisplayName("getLongArg returns long value for numbers")
+    @DisplayName("getLongArg returns long value for integral numbers and strings")
     void testGetLongArgSuccess() {
         Map<String, Object> args = Map.of(
             "intVal", 10,
@@ -74,6 +74,24 @@ class ToolArgsTest {
         assertThat(ToolArgs.getLongArg(args, "longVal", false)).isEqualTo(5000000000L);
         assertThat(ToolArgs.getLongArg(args, "doubleVal", false)).isEqualTo(99L);
         assertThat(ToolArgs.getLongArg(args, "strLong", false)).isEqualTo(123456L);
+    }
+
+    @Test
+    @DisplayName("getLongArg rejects fractional and out-of-range numeric values")
+    void testGetLongArgRejectsNonIntegralNumbers() {
+        assertThatThrownBy(() -> ToolArgs.getLongArg(Map.of("pid", 1234.99), "pid", true))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("must be an integer");
+        assertThatThrownBy(() -> ToolArgs.getLongArg(Map.of("pid", Double.NaN), "pid", true))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("must be an integer");
+        assertThatThrownBy(() -> ToolArgs.getLongArg(Map.of("pid", Double.POSITIVE_INFINITY), "pid", true))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("must be an integer");
+        assertThatThrownBy(() -> ToolArgs.getLongArg(
+                Map.of("pid", new java.math.BigInteger("9223372036854775808")), "pid", true))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("must be an integer");
     }
 
     @Test
@@ -127,23 +145,35 @@ class ToolArgsTest {
     void testGetIntArg() {
         assertThat(ToolArgs.getIntArg(null, "limit", 100, 1, 1000)).isEqualTo(100);
         assertThat(ToolArgs.getIntArg(Map.of(), "limit", 100, 1, 1000)).isEqualTo(100);
-
-        // Clamping to min
         assertThat(ToolArgs.getIntArg(Map.of("limit", -50), "limit", 100, 1, 1000)).isEqualTo(1);
-
-        // Clamping to max
         assertThat(ToolArgs.getIntArg(Map.of("limit", 5000), "limit", 100, 1, 1000)).isEqualTo(1000);
-
-        // Within bounds
         assertThat(ToolArgs.getIntArg(Map.of("limit", 250), "limit", 100, 1, 1000)).isEqualTo(250);
-
-        // Numeric string support
         assertThat(ToolArgs.getIntArg(Map.of("limit", "250"), "limit", 100, 1, 1000)).isEqualTo(250);
 
-        // Invalid numeric string
         assertThatThrownBy(() -> ToolArgs.getIntArg(Map.of("limit", "invalid"), "limit", 100, 1, 1000))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("must be a number");
+    }
+
+    @Test
+    @DisplayName("getIntArg clamps large and small numeric values without overflow")
+    void testGetIntArgClampsLargeNumbers() {
+        assertThat(ToolArgs.getIntArg(Map.of("limit", 4294967297L), "limit", 100, 1, 1000))
+            .isEqualTo(1000);
+        assertThat(ToolArgs.getIntArg(Map.of("limit", Long.MAX_VALUE), "limit", 100, 1, 1000))
+            .isEqualTo(1000);
+        assertThat(ToolArgs.getIntArg(Map.of("limit", Long.MIN_VALUE), "limit", 100, 1, 1000))
+            .isEqualTo(1);
+        assertThat(ToolArgs.getIntArg(Map.of("limit", new java.math.BigInteger("999999999999999999999999")),
+                "limit", 100, 1, 1000)).isEqualTo(1000);
+    }
+
+    @Test
+    @DisplayName("getIntArg rejects non-integral numeric values")
+    void testGetIntArgRejectsNonIntegralNumbers() {
+        assertThatThrownBy(() -> ToolArgs.getIntArg(Map.of("limit", 10.5), "limit", 100, 1, 1000))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("must be an integer");
     }
 
     @Test
@@ -151,7 +181,6 @@ class ToolArgsTest {
     void testGetStringArgOptionalNullValue() {
         Map<String, Object> args = new HashMap<>();
         args.put("url", null);
-
         assertThat(ToolArgs.getStringArg(args, "url", false)).isNull();
     }
 
@@ -159,7 +188,6 @@ class ToolArgsTest {
     @DisplayName("getStringArg allows blank optional arguments")
     void testGetStringArgOptionalBlankValue() {
         Map<String, Object> args = Map.of("url", "   ");
-
         assertThat(ToolArgs.getStringArg(args, "url", false)).isEqualTo("   ");
     }
 
@@ -168,20 +196,18 @@ class ToolArgsTest {
     void testGetStringArgRequiredNullValue() {
         Map<String, Object> args = new HashMap<>();
         args.put("url", null);
-
         assertThatThrownBy(() -> ToolArgs.getStringArg(args, "url", true))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Missing required argument: url");
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("Missing required argument: url");
     }
 
     @Test
     @DisplayName("getStringArg rejects blank strings for required arguments")
     void testGetStringArgRequiredBlankValue() {
         Map<String, Object> args = Map.of("url", " ");
-
         assertThatThrownBy(() -> ToolArgs.getStringArg(args, "url", true))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Argument 'url' cannot be blank");
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("Argument 'url' cannot be blank");
     }
 
     @Test
@@ -189,7 +215,6 @@ class ToolArgsTest {
     void testGetLongArgNullOptionalValue() {
         Map<String, Object> args = new HashMap<>();
         args.put("limit", null);
-
         assertThat(ToolArgs.getLongArg(args, "limit", false)).isEqualTo(0L);
     }
 
@@ -198,7 +223,6 @@ class ToolArgsTest {
     void testGetLongArgNullRequiredValue() {
         Map<String, Object> args = new HashMap<>();
         args.put("limit", null);
-
         assertThatThrownBy(() -> ToolArgs.getLongArg(args, "limit", true))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("must be a number");
@@ -209,9 +233,7 @@ class ToolArgsTest {
     void testGetIntArgNullValue() {
         Map<String, Object> args = new HashMap<>();
         args.put("limit", null);
-
-        assertThat(ToolArgs.getIntArg(args, "limit", 100, 1, 1000))
-            .isEqualTo(100);
+        assertThat(ToolArgs.getIntArg(args, "limit", 100, 1, 1000)).isEqualTo(100);
     }
 
     @Test
@@ -219,33 +241,34 @@ class ToolArgsTest {
     void testGetBooleanArgDefaultValue() {
         Map<String, Object> args = new HashMap<>();
         args.put("enabled", null);
-
         assertThat(ToolArgs.getBooleanArg(null, "enabled", true)).isTrue();
         assertThat(ToolArgs.getBooleanArg(Map.of(), "enabled", false)).isFalse();
         assertThat(ToolArgs.getBooleanArg(args, "enabled", true)).isTrue();
     }
 
     @Test
-    @DisplayName("getBooleanArg supports booleans and strings")
+    @DisplayName("getBooleanArg supports booleans and case-insensitive strings")
     void testGetBooleanArgValues() {
-        assertThat(ToolArgs.getBooleanArg(
-            Map.of("enabled", true), "enabled", false)).isTrue();
+        assertThat(ToolArgs.getBooleanArg(Map.of("enabled", true), "enabled", false)).isTrue();
+        assertThat(ToolArgs.getBooleanArg(Map.of("enabled", false), "enabled", true)).isFalse();
+        assertThat(ToolArgs.getBooleanArg(Map.of("enabled", " true "), "enabled", false)).isTrue();
+        assertThat(ToolArgs.getBooleanArg(Map.of("enabled", "FALSE"), "enabled", true)).isFalse();
+    }
 
-        assertThat(ToolArgs.getBooleanArg(
-            Map.of("enabled", false), "enabled", true)).isFalse();
-
-        assertThat(ToolArgs.getBooleanArg(
-            Map.of("enabled", " true "), "enabled", false)).isTrue();
-
-        assertThat(ToolArgs.getBooleanArg(
-            Map.of("enabled", "false"), "enabled", true)).isFalse();
+    @Test
+    @DisplayName("getBooleanArg rejects invalid strings")
+    void testGetBooleanArgInvalidStrings() {
+        for (String value : new String[] {"yes", "1", "falsee", "tru", "", "  "}) {
+            assertThatThrownBy(() -> ToolArgs.getBooleanArg(Map.of("enabled", value), "enabled", false))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("must be 'true' or 'false'");
+        }
     }
 
     @Test
     @DisplayName("getBooleanArg rejects unsupported value types")
     void testGetBooleanArgInvalidType() {
-        assertThatThrownBy(() ->
-            ToolArgs.getBooleanArg(Map.of("enabled", 1), "enabled", false))
+        assertThatThrownBy(() -> ToolArgs.getBooleanArg(Map.of("enabled", 1), "enabled", false))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("Argument 'enabled' must be a boolean");
     }

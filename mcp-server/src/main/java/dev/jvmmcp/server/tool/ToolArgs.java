@@ -1,5 +1,7 @@
 package dev.jvmmcp.server.tool;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.Map;
 
 /**
@@ -51,13 +53,19 @@ public final class ToolArgs {
         }
         Object val = args.get(key);
         if (val instanceof Number n) {
-            return n.longValue();
+            try {
+                return new BigDecimal(n.toString()).longValueExact();
+            } catch (NumberFormatException | ArithmeticException e) {
+                throw new IllegalArgumentException(
+                        "Argument '" + key + "' must be an integer, got: " + n);
+            }
         }
         if (val instanceof String s && !s.isBlank()) {
             try {
                 return Long.parseLong(s.trim());
             } catch (NumberFormatException e) {
-                throw new IllegalArgumentException("Argument '" + key + "' must be a number, got: " + s);
+                throw new IllegalArgumentException(
+                        "Argument '" + key + "' must be a number, got: " + s);
             }
         }
         throw new IllegalArgumentException("Argument '" + key + "' must be a number");
@@ -76,22 +84,25 @@ public final class ToolArgs {
             return defaultValue;
         }
         Object val = args.get(key);
-        int parsed;
+        long parsed;
         if (val instanceof Number n) {
-            parsed = n.intValue();
+            try {
+                parsed = new BigDecimal(n.toString()).longValueExact();
+            } catch (NumberFormatException | ArithmeticException e) {
+                throw new IllegalArgumentException(
+                        "Argument '" + key + "' must be an integer, got: " + n);
+            }
         } else if (val instanceof String s && !s.isBlank()) {
             try {
-                parsed = Integer.parseInt(s.trim());
+                parsed = Long.parseLong(s.trim());
             } catch (NumberFormatException e) {
-                throw new IllegalArgumentException("Argument '" + key + "' must be a number, got: " + s);
+                throw new IllegalArgumentException(
+                        "Argument '" + key + "' must be a number, got: " + s);
             }
         } else {
             throw new IllegalArgumentException("Argument '" + key + "' must be a number");
         }
-        if (parsed < min) {
-            return min;
-        }
-        return Math.min(parsed, max);
+        return (int) Math.max((long) min, Math.min((long) max, parsed));
     }
 
     public static boolean getBooleanArg(Map<String, Object> args, String key, boolean defaultValue) {
@@ -103,7 +114,15 @@ public final class ToolArgs {
             return b;
         }
         if (val instanceof String s) {
-            return Boolean.parseBoolean(s.trim());
+            String normalized = s.trim();
+            if ("true".equalsIgnoreCase(normalized)) {
+                return true;
+            }
+            if ("false".equalsIgnoreCase(normalized)) {
+                return false;
+            }
+            throw new IllegalArgumentException(
+                    "Argument '" + key + "' must be 'true' or 'false', got: " + s);
         }
         throw new IllegalArgumentException("Argument '" + key + "' must be a boolean");
     }
