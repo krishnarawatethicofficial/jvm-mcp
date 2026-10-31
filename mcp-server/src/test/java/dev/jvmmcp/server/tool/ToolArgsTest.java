@@ -149,6 +149,7 @@ class ToolArgsTest {
         assertThat(ToolArgs.getIntArg(Map.of("limit", 5000), "limit", 100, 1, 1000)).isEqualTo(1000);
         assertThat(ToolArgs.getIntArg(Map.of("limit", 250), "limit", 100, 1, 1000)).isEqualTo(250);
         assertThat(ToolArgs.getIntArg(Map.of("limit", "250"), "limit", 100, 1, 1000)).isEqualTo(250);
+        assertThat(ToolArgs.getIntArg(Map.of("limit", 10.5), "limit", 100, 1, 1000)).isEqualTo(10);
 
         assertThatThrownBy(() -> ToolArgs.getIntArg(Map.of("limit", "invalid"), "limit", 100, 1, 1000))
             .isInstanceOf(IllegalArgumentException.class)
@@ -166,14 +167,8 @@ class ToolArgsTest {
             .isEqualTo(1);
         assertThat(ToolArgs.getIntArg(Map.of("limit", new java.math.BigInteger("999999999999999999999999")),
                 "limit", 100, 1, 1000)).isEqualTo(1000);
-    }
-
-    @Test
-    @DisplayName("getIntArg rejects non-integral numeric values")
-    void testGetIntArgRejectsNonIntegralNumbers() {
-        assertThatThrownBy(() -> ToolArgs.getIntArg(Map.of("limit", 10.5), "limit", 100, 1, 1000))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("must be an integer");
+        assertThat(ToolArgs.getIntArg(Map.of("limit", "4294967297"), "limit", 100, 1, 1000))
+            .isEqualTo(1000);
     }
 
     @Test

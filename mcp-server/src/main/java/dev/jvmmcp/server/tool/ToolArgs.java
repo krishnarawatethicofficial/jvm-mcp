@@ -1,7 +1,6 @@
 package dev.jvmmcp.server.tool;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.Map;
 
 /**
@@ -84,25 +83,31 @@ public final class ToolArgs {
             return defaultValue;
         }
         Object val = args.get(key);
-        long parsed;
         if (val instanceof Number n) {
             try {
-                parsed = new BigDecimal(n.toString()).longValueExact();
-            } catch (NumberFormatException | ArithmeticException e) {
+                BigDecimal numericValue = new BigDecimal(n.toString());
+                if (numericValue.compareTo(BigDecimal.valueOf(min)) < 0) {
+                    return min;
+                }
+                if (numericValue.compareTo(BigDecimal.valueOf(max)) > 0) {
+                    return max;
+                }
+                return numericValue.intValue();
+            } catch (NumberFormatException e) {
                 throw new IllegalArgumentException(
-                        "Argument '" + key + "' must be an integer, got: " + n);
+                        "Argument '" + key + "' must be a number, got: " + n);
             }
-        } else if (val instanceof String s && !s.isBlank()) {
+        }
+        if (val instanceof String s && !s.isBlank()) {
             try {
-                parsed = Long.parseLong(s.trim());
+                long parsed = Long.parseLong(s.trim());
+                return (int) Math.max((long) min, Math.min((long) max, parsed));
             } catch (NumberFormatException e) {
                 throw new IllegalArgumentException(
                         "Argument '" + key + "' must be a number, got: " + s);
             }
-        } else {
-            throw new IllegalArgumentException("Argument '" + key + "' must be a number");
         }
-        return (int) Math.max((long) min, Math.min((long) max, parsed));
+        throw new IllegalArgumentException("Argument '" + key + "' must be a number");
     }
 
     public static boolean getBooleanArg(Map<String, Object> args, String key, boolean defaultValue) {
